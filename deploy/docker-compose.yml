@@ -1,0 +1,12 @@
+# Server compose file of the frontend. Lives in /opt/studio-desk/frontend/ next
+# to image.env; GitHub Actions copies it there on every deploy.
+# The hosts the frontend answers on come from .env.production inside the image.
+# See studio-desk-docs/03-architecture/deployment.md.
+name: studio-desk-frontend
+
+services:
+  frontend:
+    image: ghcr.io/igorchugurov/studio-desk-frontend:${IMAGE_TAG:?}
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3101:3000'
