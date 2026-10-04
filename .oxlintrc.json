@@ -1,0 +1,77 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "nextjs"],
+  "rules": {
+    "typescript/no-floating-promises": "error"
+  },
+  "env": {
+    "browser": true,
+    "node": true
+  },
+  "overrides": [
+    {
+      "files": ["src/platform/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/studio/**", "**/site/**"],
+                "message": "A surface imports only from shared/ and itself."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/studio/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/platform/**", "**/site/**"],
+                "message": "A surface imports only from shared/ and itself."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/site/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/platform/**", "**/studio/**"],
+                "message": "A surface imports only from shared/ and itself."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/shared/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/platform/**", "**/studio/**", "**/site/**"],
+                "message": "shared/ does not import from a surface."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
