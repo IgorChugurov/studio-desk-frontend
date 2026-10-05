@@ -30,3 +30,16 @@ export const studiosPageSchema = z.object({
   }),
 });
 export type StudiosPage = z.infer<typeof studiosPageSchema>;
+
+/** `GET /studios/{id}`, and the answer of create and update. */
+export const studioSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  subdomain: z.string(),
+  customDomain: z.string().nullable(),
+  owner: z.object({ email: z.string() }),
+  status: studioStatusSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Studio = z.infer<typeof studioSchema>;
