@@ -4,9 +4,8 @@ import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { getApi } from '../api/api';
 import { useSession } from '../api/session-provider';
+import { CrumbsProvider } from './crumbs';
 import { Navbar } from './navbar';
-
-const CRUMBS = [{ label: 'Studios' }];
 
 /**
  * The frame of every page after sign-in. It is exactly as tall as the screen:
@@ -25,13 +24,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (session.status !== 'signed-in') return null;
 
   return (
-    <div className="flex h-dvh flex-col">
-      <Navbar
-        email={session.email}
-        crumbs={CRUMBS}
-        onSignOut={() => void getApi().auth.signOut()}
-      />
-      <main className="flex min-h-0 flex-1 flex-col">{children}</main>
-    </div>
+    <CrumbsProvider>
+      <div className="flex h-dvh flex-col">
+        <Navbar
+          email={session.email}
+          onSignOut={() => void getApi().auth.signOut()}
+        />
+        <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+      </div>
+    </CrumbsProvider>
   );
 }

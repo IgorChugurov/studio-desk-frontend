@@ -1,4 +1,11 @@
-/** The home page: the list of studios will be here. Only the navbar for now. */
+import { Suspense } from 'react';
+import { StudiosList } from '../../../platform/studios/studios-list';
+
+/** The home page: the list of studios. */
 export default function HomePage() {
-  return null;
+  return (
+    <Suspense>
+      <StudiosList />
+    </Suspense>
+  );
 }

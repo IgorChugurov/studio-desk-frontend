@@ -1,16 +1,17 @@
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
 import { cn } from '../lib/cn';
 
 export interface BreadcrumbItem {
   label: string;
   /** Address of a level above the current page. */
   href?: string;
+  /** Hide this level on a narrow screen (when the line does not fit). */
+  hideOnMobile?: boolean;
 }
 
 /**
- * Breadcrumbs as pills (Breadcrumbs line): the current page is the last item
- * and is a filled pill, the levels above it are outlined links.
+ * Breadcrumbs line for the blue bar: levels above the current page are
+ * outlined pills, the last item is the current page and is a filled pill.
  */
 export function Breadcrumbs({
   items,
@@ -20,45 +21,51 @@ export function Breadcrumbs({
   className?: string;
 }) {
   const pill = cn(
-    'inline-flex h-6 items-center rounded-[var(--radius-100)] px-[var(--space-300)]',
-    'font-[family-name:var(--body-font-family)] font-[var(--body-font-weight-strong)]',
-    'text-[length:var(--body-sizeM)] whitespace-nowrap',
+    'inline-flex h-6 min-w-0 items-center rounded-[var(--radius-100)] px-[var(--space-200)]',
+    'font-[family-name:var(--body-font-family)] text-[length:var(--body-sizeM)]',
   );
 
   return (
-    <nav aria-label="Breadcrumbs" className={className}>
-      <ol className="flex items-center gap-[var(--space-100)]">
+    <nav aria-label="Breadcrumbs" className={cn('min-w-0', className)}>
+      <ol className="flex min-w-0 items-center gap-[var(--space-200)]">
         {items.map((item, index) => {
           const isCurrent = index === items.length - 1;
           return (
             <li
               key={index}
-              className="flex items-center gap-[var(--space-100)]"
+              className={cn(
+                'items-center gap-[var(--space-200)]',
+                isCurrent ? 'flex min-w-0' : 'flex shrink-0',
+                item.hideOnMobile && 'hidden sm:flex',
+              )}
             >
               {index > 0 && (
-                <ChevronRight
-                  aria-hidden
-                  className="size-4 text-[var(--icons-gray-secondary)]"
-                />
-              )}
-              {isCurrent || !item.href ? (
                 <span
-                  aria-current={isCurrent ? 'page' : undefined}
+                  aria-hidden
                   className={cn(
-                    pill,
-                    isCurrent
-                      ? 'bg-[var(--background-primary-default)] text-[var(--text-primary-on-primary)]'
-                      : 'border border-[var(--border-gray-default)] text-[var(--text-gray-default)]',
+                    'text-[var(--white-with-opacity-700)]',
+                    items[index - 1]?.hideOnMobile && 'hidden sm:inline',
                   )}
                 >
-                  {item.label}
+                  /
+                </span>
+              )}
+              {isCurrent ? (
+                <span
+                  aria-current="page"
+                  className={cn(
+                    pill,
+                    'bg-[var(--background-primary-tertiary)] text-[var(--text-primary-default)]',
+                  )}
+                >
+                  <span className="truncate">{item.label}</span>
                 </span>
               ) : (
                 <Link
-                  href={item.href}
+                  href={item.href ?? '/'}
                   className={cn(
                     pill,
-                    'border border-[var(--border-gray-default)] text-[var(--text-gray-default)] transition-colors hover:border-[var(--border-gray-secondary)]',
+                    'border border-[var(--white-with-opacity-400)] text-[var(--text-primary-on-primary)] transition-colors hover:bg-[var(--white-with-opacity-200)]',
                   )}
                 >
                   {item.label}
