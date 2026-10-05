@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getApi } from '../api/api';
 import { apiQuery, type ListParams } from './list-state';
 import { studiosPageSchema, type StudiosPage } from './studio-types';
@@ -10,6 +10,8 @@ export interface StudiosListState {
   data: StudiosPage | null;
   loading: boolean;
   failed: boolean;
+  /** Loads the same page again, e.g. after an action changed a studio. */
+  reload: () => void;
 }
 
 /** Loads one page of studios; every change of the parameters loads again. */
@@ -19,12 +21,14 @@ export function useStudiosList(params: ListParams): StudiosListState {
     key: string;
     failed: boolean;
   } | null>(null);
-  const key = apiQuery(params);
+  const [attempt, setAttempt] = useState(0);
+  const key = `${apiQuery(params)}#${attempt}`;
 
   useEffect(() => {
     let current = true;
+    const [query] = key.split('#');
     getApi()
-      .request<unknown>(`/studios?${key}`)
+      .request<unknown>(`/studios?${query}`)
       .then((body) => {
         if (!current) return;
         setData(studiosPageSchema.parse(body));
@@ -39,5 +43,6 @@ export function useStudiosList(params: ListParams): StudiosListState {
   }, [key]);
 
   const loading = outcome?.key !== key;
-  return { data, loading, failed: !loading && outcome.failed };
+  const reload = useCallback(() => setAttempt((value) => value + 1), []);
+  return { data, loading, failed: !loading && outcome.failed, reload };
 }

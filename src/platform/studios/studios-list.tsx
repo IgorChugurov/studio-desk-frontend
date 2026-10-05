@@ -19,6 +19,7 @@ import {
   type ListParams,
 } from './list-state';
 import { StudiosTable } from './studios-table';
+import { useStudioActions } from './use-studio-actions';
 import { useStudiosList } from './use-studios-list';
 
 const CRUMBS = [{ label: 'Studios' }];
@@ -52,6 +53,7 @@ export function StudiosList() {
     [query],
   );
   const list = useStudiosList(params);
+  const actions = useStudioActions(() => list.reload());
 
   useEffect(() => {
     rememberListQuery(listQuery(params));
@@ -174,6 +176,9 @@ export function StudiosList() {
             <StudiosTable
               items={data.items}
               onOpen={(id) => router.push(`/studios/${id}`)}
+              onDeactivate={actions.requestDeactivate}
+              onActivate={(studio) => void actions.activate(studio.id)}
+              onLoginAs={(studio) => void actions.loginAs(studio.id)}
             />
           </div>
         )}
@@ -190,6 +195,7 @@ export function StudiosList() {
           />
         )}
       </div>
+      {actions.dialog}
     </div>
   );
 }

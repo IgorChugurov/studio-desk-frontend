@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../../shared/ui/button';
 import { Field } from '../../shared/ui/field';
@@ -63,6 +63,7 @@ function fieldErrorsOf(error: unknown): FieldErrors | null {
 export function StudioForm({
   initial,
   status,
+  extraActions,
   onSave,
   onBack,
 }: {
@@ -70,6 +71,8 @@ export function StudioForm({
   initial?: StudioValues;
   /** Shown only when editing. */
   status?: StudioStatus;
+  /** Buttons between "Back" and "Update" (editing only). */
+  extraActions?: ReactNode;
   onSave: (values: StudioValues) => Promise<void>;
   onBack: () => void;
 }) {
@@ -144,6 +147,7 @@ export function StudioForm({
             <ArrowLeft aria-hidden />
             Back
           </Button>
+          {extraActions}
           <Button
             type="submit"
             variant="cta"

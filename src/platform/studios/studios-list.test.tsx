@@ -32,6 +32,9 @@ vi.mock('next/link', () => ({
   ),
 }));
 vi.mock('../api/api', () => ({ getApi: () => ({ request }) }));
+vi.mock('../../shared/config/public-env', () => ({
+  loadPublicEnv: () => ({ studioAdminUrl: 'https://app.test/impersonate' }),
+}));
 vi.mock('../../shared/ui/toaster', () => ({
   notify: { success: vi.fn(), error: vi.fn() },
   Toaster: () => null,
@@ -162,6 +165,70 @@ describe('StudiosList', () => {
       vi.advanceTimersByTime(300);
     });
     expect(router.replace).toHaveBeenCalledWith('/?search=yoga');
+  });
+});
+
+describe('StudiosList: row menu', () => {
+  async function openMenu(name: string) {
+    await act(async () => {
+      fireEvent.keyDown(screen.getByRole('button', { name }), { key: 'Enter' });
+    });
+  }
+
+  it('an active studio offers Edit, Deactivate and Log in as studio', async () => {
+    request.mockResolvedValue(page([studio]));
+    await renderList();
+    await openMenu('Actions for Northline Portraits');
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Deactivate' })).toBeTruthy();
+    expect(
+      screen.getByRole('menuitem', { name: 'Log in as studio' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: 'Activate' })).toBeNull();
+  });
+
+  it('a deactivated studio offers Activate instead of Deactivate', async () => {
+    request.mockResolvedValue(page([{ ...studio, status: 'deactivated' }]));
+    await renderList();
+    await openMenu('Actions for Northline Portraits');
+    expect(screen.getByRole('menuitem', { name: 'Activate' })).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: 'Deactivate' })).toBeNull();
+  });
+
+  it('Activate reloads the list; the row follows the filter', async () => {
+    location.search = 'status=deactivated';
+    request
+      .mockResolvedValueOnce(page([{ ...studio, status: 'deactivated' }]))
+      .mockResolvedValueOnce({
+        ...studio,
+        status: 'active',
+        updatedAt: '2026-10-03T10:00:00Z',
+      })
+      .mockResolvedValueOnce(page([]));
+    await renderList();
+    await openMenu('Actions for Northline Portraits');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Activate' }));
+    });
+    expect(await screen.findByText('No studios found')).toBeTruthy();
+    expect(request).toHaveBeenNthCalledWith(2, '/studios/s1/activate', {
+      method: 'POST',
+    });
+    expect(request).toHaveBeenNthCalledWith(
+      3,
+      '/studios?status=deactivated&currentPage=1&perPage=15',
+    );
+  });
+
+  it('Deactivate asks to confirm before the request', async () => {
+    request.mockResolvedValue(page([studio]));
+    await renderList();
+    await openMenu('Actions for Northline Portraits');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Deactivate' }));
+    });
+    expect(screen.getByText('Deactivate studio?')).toBeTruthy();
+    expect(request).toHaveBeenCalledTimes(1);
   });
 });
 

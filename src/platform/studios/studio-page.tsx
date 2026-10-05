@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LoaderCircle } from 'lucide-react';
+import { Button } from '../../shared/ui/button';
 import { notify } from '../../shared/ui/toaster';
 import { getApi } from '../api/api';
 import { useCrumbs } from '../shell/crumbs';
@@ -10,6 +11,7 @@ import { lastListHref } from './list-state';
 import { StudioForm } from './studio-form';
 import { changedBody, createBody, type StudioValues } from './studio-rules';
 import { studioSchema, type Studio } from './studio-types';
+import { useStudioActions } from './use-studio-actions';
 
 const FAILED_TEXT = 'Something went wrong. Try again';
 
@@ -30,6 +32,7 @@ function valuesOf(studio: Studio): StudioValues {
 export function StudioPage({ id }: { id?: string }) {
   const router = useRouter();
   const [studio, setStudio] = useState<Studio | null>(null);
+  const actions = useStudioActions(setStudio);
 
   useCrumbs([
     { label: 'Studios', href: lastListHref() },
@@ -87,11 +90,48 @@ export function StudioPage({ id }: { id?: string }) {
   }
 
   return (
-    <StudioForm
-      initial={studio ? valuesOf(studio) : undefined}
-      status={studio?.status}
-      onSave={studio ? update : create}
-      onBack={back}
-    />
+    <>
+      <StudioForm
+        initial={studio ? valuesOf(studio) : undefined}
+        status={studio?.status}
+        extraActions={
+          studio && (
+            <>
+              {studio.status === 'active' ? (
+                <Button
+                  type="button"
+                  variant="outlined"
+                  size="md"
+                  onClick={() => actions.requestDeactivate(studio)}
+                >
+                  Deactivate
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outlined"
+                  size="md"
+                  loading={actions.pending}
+                  onClick={() => void actions.activate(studio.id)}
+                >
+                  Activate
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="text"
+                size="md"
+                onClick={() => void actions.loginAs(studio.id)}
+              >
+                Log in as studio
+              </Button>
+            </>
+          )
+        }
+        onSave={studio ? update : create}
+        onBack={back}
+      />
+      {actions.dialog}
+    </>
   );
 }

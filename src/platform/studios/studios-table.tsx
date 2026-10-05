@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { EllipsisVertical, Pencil } from 'lucide-react';
+import { EllipsisVertical, LogIn, Pencil, Power, PowerOff } from 'lucide-react';
 import { Button } from '../../shared/ui/button';
 import {
   DropdownMenu,
@@ -47,9 +47,15 @@ export function formatCreated(iso: string): string {
 export function StudiosTable({
   items,
   onOpen,
+  onDeactivate,
+  onActivate,
+  onLoginAs,
 }: {
   items: StudioListItem[];
   onOpen: (id: string) => void;
+  onDeactivate: (studio: StudioListItem) => void;
+  onActivate: (studio: StudioListItem) => void;
+  onLoginAs: (studio: StudioListItem) => void;
 }) {
   return (
     <Table className="min-w-[1000px]">
@@ -109,6 +115,27 @@ export function StudiosTable({
                     <DropdownMenuItem onSelect={() => onOpen(studio.id)}>
                       <Pencil aria-hidden className="size-4" />
                       Edit
+                    </DropdownMenuItem>
+                    {studio.status === 'active' ? (
+                      <DropdownMenuItem
+                        className="text-[var(--text-error-default)]"
+                        onSelect={() => onDeactivate(studio)}
+                      >
+                        <PowerOff
+                          aria-hidden
+                          className="size-4 text-[var(--icons-error-default)]"
+                        />
+                        Deactivate
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem onSelect={() => onActivate(studio)}>
+                        <Power aria-hidden className="size-4" />
+                        Activate
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onSelect={() => onLoginAs(studio)}>
+                      <LogIn aria-hidden className="size-4" />
+                      Log in as studio
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
