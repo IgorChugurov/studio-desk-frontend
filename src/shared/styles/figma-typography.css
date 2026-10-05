@@ -1,0 +1,209 @@
+/* Design-kit typography. Source: starter-kit src/figma/figma-typography.css. */
+/**
+ * Figma Typography - Typography classes from Figma design system
+ *
+ * Source: https://www.figma.com/design/GU3JPvpV4dui7EyaUuf3MF/Output-Engine?node-id=83-8657&m=dev
+ * Node ID: 83:8657 (Typography)
+ *
+ * All classes are encapsulated through :root to prevent conflicts.
+ */
+
+:root {
+  /* ============================================================================
+   * HEADINGS
+   * ============================================================================ */
+
+  /* H1 - Title Hero */
+  /* Style: Semibold / Size: 40px / Line height: 120% / Letter spacing: -3% */
+  .figma-heading-h1 {
+    font-family: var(--headings-font);
+    font-size: var(--title-hero-size, 40px);
+    font-weight: var(--title-hero-font-weight, 600);
+    line-height: 120%;
+    letter-spacing: -0.03em;
+  }
+
+  /* H2 - Heading M */
+  /* Style: Medium / Size: 24px / Line height: 120% / Letter spacing: 0 */
+  .figma-heading-h2 {
+    font-family: var(--headings-font);
+    font-size: var(--heading-size-m, 24px);
+    font-weight: var(--heading-font-weight, 500);
+    line-height: 120%;
+    letter-spacing: 0;
+  }
+
+  /* H3 - Heading S */
+  /* Style: Medium / Size: 20px / Line height: 120% / Letter spacing: 0 */
+  .figma-heading-h3 {
+    font-family: var(--headings-font);
+    font-size: var(--heading-size-s, 20px);
+    font-weight: var(--heading-font-weight, 500);
+    line-height: 120%;
+    letter-spacing: 0;
+  }
+
+  /* ============================================================================
+   * BODY TEXT - Single Line
+   * ============================================================================ */
+
+  /* Body/S/Regular */
+  /* Style: Regular / Size: 12px / Line height: 115% / Letter spacing: 0 */
+  .figma-body-s-regular {
+    font-family: var(--body-font);
+    font-size: var(--body-sizeS, 12px);
+    font-weight: var(--body-font-weight-regular, 400);
+    line-height: 115%;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Body/S/Medium */
+  /* Style: Medium / Size: 12px / Line height: 115% / Letter spacing: 0 */
+  .figma-body-s-medium {
+    font-family: var(--body-font);
+    font-size: var(--body-sizeS, 12px);
+    font-weight: var(--body-font-weight-strong, 500);
+    line-height: 115%;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Body/M/Regular */
+  /* Style: Regular / Size: 14px / Line height: 115% / Letter spacing: 0 */
+  .figma-body-m-regular {
+    font-family: var(--body-font);
+    font-size: var(--body-sizeM, 14px);
+    font-weight: var(--body-font-weight-regular, 400);
+    line-height: 115%;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Body/M/Medium */
+  /* Style: Medium / Size: 14px / Line height: 115% / Letter spacing: 0 */
+  .figma-body-m-medium {
+    font-family: var(--body-font);
+    font-size: var(--body-sizeM, 14px);
+    font-weight: var(--body-font-weight-strong, 500);
+    line-height: 115%;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Body/L/Regular */
+  /* Style: Regular / Size: 16px / Line height: 115% / Letter spacing: 0 */
+  .figma-body-l-regular {
+    font-family: var(--body-font);
+    font-size: var(--body-sizeL, 16px);
+    font-weight: var(--body-font-weight-regular, 400);
+    line-height: 115%;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Body/L/Medium */
+  /* Style: Medium / Size: 16px / Line height: 115% / Letter spacing: 0 */
+  .figma-body-l-medium {
+    font-family: var(--body-font);
+    font-size: var(--body-sizeL, 16px);
+    font-weight: var(--body-font-weight-strong, 500);
+    line-height: 115%;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Body/L/Bold */
+  /* Style: Bold / Size: 16px / Line height: 135% / Letter spacing: 0 */
+  .figma-body-l-bold {
+    font-family: var(--body-font);
+    font-size: var(--scale-03, 16px);
+    font-weight: var(--weight-bold, 700);
+    line-height: 135%;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ============================================================================
+   * BODY TEXT - Multiline
+   * ============================================================================ */
+
+  /* Body/S/Multiline */
+  /* Style: Regular / Size: 12px / Line height: 140% / Letter spacing: 0 */
+  .figma-body-s-multiline {
+    font-family: var(--body-font);
+    font-size: var(--body-sizeS, 12px);
+    font-weight: var(--body-font-weight-regular, 400);
+    line-height: 140%;
+    letter-spacing: 0;
+  }
+
+  /* Body/M/Multiline */
+  /* Style: Regular / Size: 14px / Line height: 140% / Letter spacing: 0 */
+  .figma-body-m-multiline {
+    font-family: var(--body-font);
+    font-size: var(--body-sizeM, 14px);
+    font-weight: var(--body-font-weight-regular, 400);
+    line-height: 140%;
+    letter-spacing: 0;
+  }
+
+  /* ============================================================================
+   * MONO TEXT
+   * ============================================================================ */
+
+  /* Mono/S/Regular */
+  /* Style: Regular / Size: 12px / Line height: 100% / Letter spacing: 0 */
+  .figma-mono-s-regular {
+    font-family: var(--mono-font);
+    font-size: var(--mono-sizeS, 12px);
+    font-weight: var(--mono-font-weight-regular, 400);
+    line-height: 100%;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Mono/S/Medium */
+  /* Style: Medium / Size: 12px / Line height: 100% / Letter spacing: 0 */
+  /* Used in table headers */
+  .figma-mono-s-medium {
+    font-family: var(--mono-font);
+    font-size: var(--mono-sizeS, 12px);
+    font-weight: var(--mono-font-weight-medium, 500);
+    line-height: 100%;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Mono/M/Regular */
+  /* Style: Regular / Size: 14px / Line height: 100% / Letter spacing: 0 */
+  /* Used for dates in tables */
+  .figma-mono-m-regular {
+    font-family: var(--mono-font);
+    font-size: var(--mono-sizeM, 14px);
+    font-weight: var(--mono-font-weight-regular, 400);
+    line-height: 100%;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

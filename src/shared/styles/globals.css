@@ -1,0 +1,19 @@
+@import 'tailwindcss';
+@import './figma-tokens.css';
+@import './figma-typography.css';
+
+/* The kit names fonts only; the files are loaded by next/font in the root layout. */
+:root {
+  --headings-font:
+    var(--font-general-sans), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --body-font:
+    var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono-font: var(--font-roboto-mono), ui-monospace, monospace;
+}
+
+body {
+  background: var(--background-gray-secondary);
+  color: var(--text-gray-default);
+  font-family: var(--body-font);
+  font-size: var(--body-sizeM);
+}
