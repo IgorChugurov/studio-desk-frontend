@@ -35,6 +35,8 @@ export function createApi({ apiUrl, fetchImpl }: ApiOptions) {
   let refreshing: Promise<void> | null = null;
   let initializing: Promise<void> | null = null;
   let selection: Selection | null = null;
+  let epoch = 0;
+  const handoffs = new Map<string, Promise<void>>();
 
   async function send(path: string, init: RequestInit): Promise<Response> {
     try {
@@ -56,9 +58,11 @@ export function createApi({ apiUrl, fetchImpl }: ApiOptions) {
   }
 
   async function startSession(tokens: SessionBody) {
+    const mine = ++epoch;
     accessToken = tokens.accessToken;
     selection = null;
     const me = await loadMe();
+    if (mine !== epoch) return;
     const language = languageOf(me.user.interfaceLanguage);
     writeLanguageCookie(language);
     store.set({
@@ -73,6 +77,7 @@ export function createApi({ apiUrl, fetchImpl }: ApiOptions) {
   }
 
   function endSession(reason?: 'expired') {
+    epoch += 1;
     accessToken = null;
     selection = null;
     store.set(
@@ -100,14 +105,17 @@ export function createApi({ apiUrl, fetchImpl }: ApiOptions) {
 
   function refresh(): Promise<void> {
     refreshing ??= (async () => {
+      const started = epoch;
       try {
         const tokens = await authCall(
           '/auth/refresh',
           { method: 'POST', headers: REQUESTED_WITH },
           sessionBodySchema,
         );
+        if (started !== epoch) return;
         await startSession(tokens);
       } catch (error) {
+        if (started !== epoch) return;
         endSession(
           error instanceof ApiError && error.code === 'SESSION_EXPIRED'
             ? 'expired'
@@ -199,6 +207,26 @@ export function createApi({ apiUrl, fetchImpl }: ApiOptions) {
           }
           throw error;
         }
+      },
+
+      async exchangeHandoff(code: string): Promise<void> {
+        const existing = handoffs.get(code);
+        if (existing) return existing;
+        const job = (async () => {
+          const response = await send('/auth/impersonation/exchange', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              ...REQUESTED_WITH,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ code }),
+          });
+          if (!response.ok) throw await toApiError(response);
+          await startSession(sessionBodySchema.parse(await response.json()));
+        })();
+        handoffs.set(code, job);
+        return job;
       },
 
       async switchStudio(studioId: string): Promise<void> {
