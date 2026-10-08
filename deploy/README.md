@@ -11,6 +11,7 @@ Design and rules: `studio-desk-docs/03-architecture/deployment.md`, `studio-desk
 | `docker-compose.yml`                           | `/opt/studio-desk/frontend/docker-compose.yml`                           |
 | `deploy.sh`                                    | `/opt/studio-desk/frontend/deploy.sh`                                    |
 | `nginx/admin.studio-desk.axondigital.xyz.conf` | `/etc/nginx/sites-available/admin.studio-desk.axondigital.xyz` (by hand) |
+| `nginx/app.studio-desk.axondigital.xyz.conf`   | `/etc/nginx/sites-available/app.studio-desk.axondigital.xyz` (by hand)   |
 | —                                              | `/opt/studio-desk/frontend/image.env` (written by `deploy.sh`: version)  |
 
 The frontend needs no `.env` on the server: its hosts and the API address are in `.env.production`, which is built into the image (public addresses only). The container listens on `127.0.0.1:3101`.
@@ -48,6 +49,20 @@ certbot --nginx -d admin.studio-desk.axondigital.xyz --redirect
 ```
 
 The first time, before the file is on GitHub, write it by hand with the content of `nginx/admin.studio-desk.axondigital.xyz.conf`.
+
+### Studio admin host
+
+Same application, second host. DNS: an `A` record `app.studio-desk` → `31.220.80.11` in Vercel. nginx proxies to the same `127.0.0.1:3101` and passes `Host`, so the app serves the studio admin.
+
+Done on the server on 2026-10-08. The certificate is at `/etc/letsencrypt/live/app.studio-desk.axondigital.xyz/` and expires on 2027-01-06; certbot renews it. The file in this repo is the HTTP site before certbot, same as for `admin`. On the server, certbot has already added HTTPS to `/etc/nginx/sites-enabled/app.studio-desk.axondigital.xyz`.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/IgorChugurov/studio-desk-frontend/development/deploy/nginx/app.studio-desk.axondigital.xyz.conf \
+  -o /etc/nginx/sites-available/app.studio-desk.axondigital.xyz
+ln -s /etc/nginx/sites-available/app.studio-desk.axondigital.xyz /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+certbot --nginx -d app.studio-desk.axondigital.xyz --redirect
+```
 
 ### 4. Server fingerprint
 
