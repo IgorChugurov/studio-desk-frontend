@@ -11,9 +11,11 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://admin.localhost:3001`. The page shows the address of the API and the version it reports.
+The local platform admin is `http://localhost:3001`. The host comes from `ADMIN_HOST` in `.env.development`. Another host, including `http://admin.localhost:3001`, answers Not found.
 
-The API address is `NEXT_PUBLIC_API_URL` in `.env.development`. To work against another API (for example the server), put the line in `.env.local`, which is not committed, and restart `pnpm dev`. That API must allow your address in CORS (`CORS_EXTRA_ORIGINS` in the backend settings).
+The studio admin host is `http://app.localhost:3001`. Its pages are not built yet, so that address answers Not found.
+
+The API address is `NEXT_PUBLIC_API_URL` in `.env.development` (`http://localhost:3000/api/platform`). The backend is started separately; see the `studio-desk-backend` README. To work against another API (for example the server), put the line in `.env.local`, which is not committed, and restart `pnpm dev`. That API must allow your address in CORS (`CORS_EXTRA_ORIGINS` in the backend settings).
 
 Settings are described in `.env.example`.
 
