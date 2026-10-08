@@ -1,6 +1,6 @@
 # studio-desk-frontend
 
-Frontend of StudioDesk: one Next project for the platform admin, the studio admin, and the public site of a studio. Which part answers is chosen by the request host (`src/proxy.ts`). Only the platform admin exists so far, and it shows the version of the platform API.
+Frontend of StudioDesk: one Next project for the platform admin, the studio admin, and the public site of a studio. Which part answers is chosen by the request host (`src/proxy.ts`).
 
 ## Run
 
@@ -13,7 +13,7 @@ pnpm dev
 
 The local platform admin is `http://localhost:3001`. The host comes from `ADMIN_HOST` in `.env.development`. Another host, including `http://admin.localhost:3001`, answers Not found.
 
-The studio admin host is `http://app.localhost:3001`. Its pages are not built yet, so that address answers Not found.
+The studio admin host is `http://app.localhost:3001`. On the server the same application answers `https://app.studio-desk.axondigital.xyz` when that host reaches it.
 
 The API address is `NEXT_PUBLIC_API_URL` in `.env.development` (`http://localhost:3000/api/platform`). The backend is started separately; see the `studio-desk-backend` README. To work against another API (for example the server), put the line in `.env.local`, which is not committed, and restart `pnpm dev`. That API must allow your address in CORS (`CORS_EXTRA_ORIGINS` in the backend settings).
 
