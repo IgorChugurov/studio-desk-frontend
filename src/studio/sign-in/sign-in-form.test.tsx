@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react';
 import { ApiError } from '../api/api-error';
 import { notify } from '../../shared/ui/toaster';
 import { SignInForm, type SignInAuth } from './sign-in-form';
@@ -104,6 +110,8 @@ describe('studio sign-in errors', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     });
-    expect(notify.error).toHaveBeenCalledWith('Something went wrong. Try again');
+    expect(notify.error).toHaveBeenCalledWith(
+      'Something went wrong. Try again',
+    );
   });
 });

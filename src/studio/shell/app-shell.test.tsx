@@ -22,9 +22,7 @@ vi.mock('../api/session-provider', () => ({
 describe('a section the role cannot open', () => {
   it('shows the fixed text and does not pretend the section is allowed', () => {
     render(<AppShell section="staff">{null}</AppShell>);
-    expect(
-      screen.getByText("You don't have access to this page"),
-    ).toBeTruthy();
+    expect(screen.getByText("You don't have access to this page")).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Staff' })).toBeNull();
   });
 });

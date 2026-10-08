@@ -42,7 +42,9 @@ describe('Studio settings', () => {
     expect((save as HTMLButtonElement).disabled).toBe(true);
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Currency' }));
-    fireEvent.click(await screen.findByRole('option', { name: 'Hryvnia (UAH)' }));
+    fireEvent.click(
+      await screen.findByRole('option', { name: 'Hryvnia (UAH)' }),
+    );
     expect((save as HTMLButtonElement).disabled).toBe(false);
   });
 });
