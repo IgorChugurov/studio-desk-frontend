@@ -25,7 +25,7 @@ export function ImpersonateScreen() {
   useEffect(() => {
     const code = codeFromAddress();
     if (!code) {
-      setFailed(true);
+      queueMicrotask(() => setFailed(true));
       return;
     }
     let gone = false;

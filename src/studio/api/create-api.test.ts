@@ -133,7 +133,10 @@ describe('studio sign-in', () => {
       call.url.endsWith('/auth/switch-studio'),
     );
     expect(switched?.init.credentials).toBe('include');
-    expect(JSON.parse(String(switched?.init.body))).toEqual({ studioId: 's2' });
+    const body = switched?.init.body;
+    expect(typeof body === 'string' ? JSON.parse(body) : body).toEqual({
+      studioId: 's2',
+    });
   });
 
   it('exchanges a handoff code into a session', async () => {
