@@ -14,7 +14,7 @@ vi.mock('../api/session-provider', () => ({
     studioId: 's1',
     studioName: 'Yoga Space',
     language: 'en',
-    sections: ['schedule'],
+    sections: ['schedule', 'catalogs'],
     studios: [{ id: 's1', name: 'Yoga Space' }],
   }),
 }));
@@ -24,5 +24,14 @@ describe('a section the role cannot open', () => {
     render(<AppShell section="staff">{null}</AppShell>);
     expect(screen.getByText("You don't have access to this page")).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Staff' })).toBeNull();
+  });
+
+  it('keeps Catalogs selected', () => {
+    render(<AppShell section="catalogs">{null}</AppShell>);
+    expect(
+      screen
+        .getByRole('link', { name: 'Catalogs' })
+        .getAttribute('aria-current'),
+    ).toBe('page');
   });
 });

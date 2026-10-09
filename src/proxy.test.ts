@@ -69,6 +69,14 @@ describe('proxy', () => {
     expect(response.headers.get('x-middleware-rewrite')).toBeNull();
   });
 
+  it('leaves a public file path for the server to forward', () => {
+    const response = proxy(
+      requestTo('app.localhost:3001', '/files/halls/1/2.jpg'),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
   it('answers 404 on any other host', () => {
     expect(proxy(requestTo('localhost:3001', '/')).status).toBe(404);
     expect(proxy(requestTo('yoga.example.com', '/platform')).status).toBe(404);

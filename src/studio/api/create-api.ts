@@ -20,6 +20,14 @@ export interface ApiOptions {
 
 const REQUESTED_WITH = { 'X-Requested-With': 'fetch' };
 
+/** `/api/files/{id}` on the API host. Locally that host is this page. */
+export function fileAddress(apiUrl: string, filePath: string): string {
+  if (apiUrl.startsWith('http://') || apiUrl.startsWith('https://')) {
+    return `${new URL(apiUrl).origin}${filePath}`;
+  }
+  return filePath;
+}
+
 export interface Selection {
   ticket: string;
   studios: StudioRef[];
@@ -153,10 +161,44 @@ export function createApi({ apiUrl, fetchImpl }: ApiOptions) {
     return (await response.json()) as T;
   }
 
+  async function upload<T = unknown>(
+    path: string,
+    files: File[],
+    repeated = false,
+  ): Promise<T> {
+    const body = new FormData();
+    for (const file of files) body.append('files', file);
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    const response = await send(path, { method: 'POST', headers, body });
+    if (response.status === 401 && !repeated) {
+      await refresh();
+      return upload<T>(path, files, true);
+    }
+    if (!response.ok) throw await toApiError(response);
+    return (await response.json()) as T;
+  }
+
+  async function readFile(filePath: string, repeated = false): Promise<Blob> {
+    const headers: Record<string, string> = {};
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    const response = await (fetchImpl ?? fetch)(fileAddress(apiUrl, filePath), {
+      headers,
+    });
+    if (response.status === 401 && !repeated) {
+      await refresh();
+      return readFile(filePath, true);
+    }
+    if (!response.ok) throw await toApiError(response);
+    return response.blob();
+  }
+
   return {
     session: store,
     selection: () => selection,
     request,
+    upload,
+    readFile,
 
     initSession(): Promise<void> {
       initializing ??= refresh().catch(() => undefined);

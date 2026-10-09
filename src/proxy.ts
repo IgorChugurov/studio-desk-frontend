@@ -17,9 +17,15 @@ export function proxy(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl;
-  // Local studio calls go through this app (`/api/studio`) so the session
-  // cookie stays on the page's address. Do not treat that as a page.
-  if (pathname === '/api' || pathname.startsWith('/api/')) {
+  // Local studio calls and public files go through this app so the browser
+  // stays on the page's address. The server forwards them to the API.
+  // Do not treat them as pages.
+  if (
+    pathname === '/api' ||
+    pathname.startsWith('/api/') ||
+    pathname === '/files' ||
+    pathname.startsWith('/files/')
+  ) {
     return NextResponse.next();
   }
 
