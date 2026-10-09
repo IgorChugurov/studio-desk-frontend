@@ -16,6 +16,10 @@ function localBackendOrigin(): string | null {
 const nextConfig: NextConfig = {
   // Minimal server for the Docker image (see Dockerfile).
   output: 'standalone',
+  experimental: {
+    // The proxy buffers the body. A video may be 100 MB; the default is 10 MB.
+    proxyClientMaxBodySize: '110mb',
+  },
   async rewrites() {
     const origin = localBackendOrigin();
     if (!origin) return [];

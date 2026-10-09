@@ -1,5 +1,10 @@
-import { EmptyCatalogTab } from '../../../../../studio/catalogs/empty-catalog-tab';
+import { Suspense } from 'react';
+import { ClassTypeList } from '../../../../../studio/catalogs/class-type-list';
 
 export default function ClassTypesPage() {
-  return <EmptyCatalogTab tab="class-types" />;
+  return (
+    <Suspense>
+      <ClassTypeList />
+    </Suspense>
+  );
 }

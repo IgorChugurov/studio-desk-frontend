@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { z } from 'zod';
 import { Button } from '../../shared/ui/button';
 import { Field } from '../../shared/ui/field';
 import { Input } from '../../shared/ui/input';
@@ -13,52 +14,68 @@ import { copy } from '../i18n/language';
 import { useCrumbs } from '../shell/crumbs';
 import { CatalogTabs } from './catalog-tabs';
 import { HallGallery } from './hall-gallery';
-import { hallSchema, type HallFile } from './hall-types';
-import { isVideoLink } from './video-link';
+import { recordImagesSchema, type HallFile } from './hall-types';
+import { isInstagramLink, isTikTokLink } from './social-link';
 
-/** Create a hall, or edit its name, address, video link, and gallery. */
-export function HallForm({ hallId }: { hallId?: string }) {
+const trainerSchema = z.object({
+  name: z.string(),
+  description: z.string().nullable().nullish(),
+  instagram: z.string().nullable().nullish(),
+  tiktok: z.string().nullable().nullish(),
+  images: recordImagesSchema.shape.images,
+});
+
+function blank(value: string): string | null {
+  return value.trim() === '' ? null : value.trim();
+}
+
+/** Create a trainer, or edit the saved one and its gallery. */
+export function TrainerForm({ trainerId }: { trainerId?: string }) {
   const session = useSession();
   const texts = copy(session.status === 'signed-in' ? session.language : 'en');
   const router = useRouter();
-  const editing = hallId !== undefined;
+  const editing = trainerId !== undefined;
   const [name, setName] = useState('');
-  const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
-  const [videoLink, setVideoLink] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [tiktok, setTiktok] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
-  const [addressError, setAddressError] = useState<string | null>(null);
-  const [videoError, setVideoError] = useState<string | null>(null);
+  const [instagramError, setInstagramError] = useState<string | null>(null);
+  const [tiktokError, setTiktokError] = useState<string | null>(null);
   const [images, setImages] = useState<HallFile[]>([]);
   const [pending, setPending] = useState(false);
 
   useCrumbs([
     { label: texts.catalogs, href: '/catalogs' },
-    { label: texts.halls, href: '/catalogs' },
+    { label: texts.trainers, href: '/catalogs/trainers' },
     {
-      label: editing ? name || '…' : name.trim() ? name.trim() : texts.newHall,
+      label: editing
+        ? name || '…'
+        : name.trim()
+          ? name.trim()
+          : texts.newTrainer,
     },
   ]);
 
   useEffect(() => {
-    if (!hallId) return;
+    if (!trainerId) return;
     let gone = false;
     void getApi()
-      .request<unknown>(`/halls/${hallId}`)
+      .request<unknown>(`/trainers/${trainerId}`)
       .then((body) => {
         if (gone) return;
-        const hall = hallSchema.parse(body);
-        setName(hall.name);
-        setAddress(hall.address);
-        setDescription(hall.description ?? '');
-        setVideoLink(hall.videoLink ?? '');
-        setImages(hall.images);
+        const trainer = trainerSchema.parse(body);
+        setName(trainer.name);
+        setDescription(trainer.description ?? '');
+        setInstagram(trainer.instagram ?? '');
+        setTiktok(trainer.tiktok ?? '');
+        setImages(trainer.images);
       })
       .catch(() => notify.error(texts.somethingWentWrong));
     return () => {
       gone = true;
     };
-  }, [hallId, texts.somethingWentWrong]);
+  }, [trainerId, texts.somethingWentWrong]);
 
   function showApiErrors(error: unknown): boolean {
     if (!(error instanceof ApiError) || error.code !== 'VALIDATION_ERROR') {
@@ -70,12 +87,12 @@ export function HallForm({ hallId }: { hallId?: string }) {
         setNameError(texts.enterName);
         matched = true;
       }
-      if (item.field === 'address' && item.code === 'REQUIRED') {
-        setAddressError(texts.enterAddress);
+      if (item.field === 'instagram' && item.code === 'INVALID_FORMAT') {
+        setInstagramError(texts.enterInstagram);
         matched = true;
       }
-      if (item.field === 'videoLink' && item.code === 'INVALID_FORMAT') {
-        setVideoError(texts.enterVideoLink);
+      if (item.field === 'tiktok' && item.code === 'INVALID_FORMAT') {
+        setTiktokError(texts.enterTiktok);
         matched = true;
       }
     }
@@ -86,32 +103,38 @@ export function HallForm({ hallId }: { hallId?: string }) {
     event.preventDefault();
     if (pending) return;
     const nextName = name.trim() === '' ? texts.enterName : null;
-    const nextAddress = address.trim() === '' ? texts.enterAddress : null;
-    const nextVideo =
-      videoLink.trim() !== '' && !isVideoLink(videoLink.trim())
-        ? texts.enterVideoLink
+    const nextInstagram =
+      instagram.trim() !== '' && !isInstagramLink(instagram.trim())
+        ? texts.enterInstagram
+        : null;
+    const nextTiktok =
+      tiktok.trim() !== '' && !isTikTokLink(tiktok.trim())
+        ? texts.enterTiktok
         : null;
     setNameError(nextName);
-    setAddressError(nextAddress);
-    setVideoError(nextVideo);
-    if (nextName || nextAddress || nextVideo) return;
+    setInstagramError(nextInstagram);
+    setTiktokError(nextTiktok);
+    if (nextName || nextInstagram || nextTiktok) return;
 
     const body = {
       name: name.trim(),
-      address: address.trim(),
-      description: description.trim() === '' ? null : description.trim(),
-      videoLink: videoLink.trim() === '' ? null : videoLink.trim(),
+      description: blank(description),
+      instagram: blank(instagram),
+      tiktok: blank(tiktok),
     };
     setPending(true);
     try {
-      if (editing && hallId) {
-        await getApi().request(`/halls/${hallId}`, { method: 'PATCH', body });
-        notify.success(texts.hallUpdated);
+      if (editing && trainerId) {
+        await getApi().request(`/trainers/${trainerId}`, {
+          method: 'PATCH',
+          body,
+        });
+        notify.success(texts.trainerUpdated);
       } else {
-        await getApi().request('/halls', { method: 'POST', body });
-        notify.success(texts.hallAdded);
+        await getApi().request('/trainers', { method: 'POST', body });
+        notify.success(texts.trainerAdded);
       }
-      router.push('/catalogs');
+      router.push('/catalogs/trainers');
     } catch (error) {
       if (!showApiErrors(error)) notify.error(texts.somethingWentWrong);
     } finally {
@@ -121,7 +144,7 @@ export function HallForm({ hallId }: { hallId?: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <CatalogTabs current="/catalogs" />
+      <CatalogTabs current="/catalogs/trainers" />
       <form
         noValidate
         className="flex min-h-0 flex-1 flex-col overflow-y-auto p-[var(--space-400)] sm:px-[var(--space-600)]"
@@ -132,7 +155,7 @@ export function HallForm({ hallId }: { hallId?: string }) {
             type="button"
             variant="outlined"
             size="md"
-            onClick={() => router.push('/catalogs')}
+            onClick={() => router.push('/catalogs/trainers')}
           >
             {texts.back}
           </Button>
@@ -152,22 +175,6 @@ export function HallForm({ hallId }: { hallId?: string }) {
               }}
             />
           </Field>
-          <Field
-            id="address"
-            label={texts.address}
-            required
-            error={addressError}
-          >
-            <Input
-              id="address"
-              value={address}
-              data-invalid={addressError ? true : undefined}
-              onChange={(event) => {
-                setAddress(event.target.value);
-                setAddressError(null);
-              }}
-            />
-          </Field>
           <Field id="description" label={texts.description}>
             <Input
               id="description"
@@ -175,20 +182,37 @@ export function HallForm({ hallId }: { hallId?: string }) {
               onChange={(event) => setDescription(event.target.value)}
             />
           </Field>
-          <Field id="video-link" label={texts.videoLink} error={videoError}>
+          <Field id="instagram" label={texts.instagram} error={instagramError}>
             <Input
-              id="video-link"
-              value={videoLink}
-              data-invalid={videoError ? true : undefined}
+              id="instagram"
+              value={instagram}
+              data-invalid={instagramError ? true : undefined}
               onChange={(event) => {
-                setVideoLink(event.target.value);
-                setVideoError(null);
+                setInstagram(event.target.value);
+                setInstagramError(null);
+              }}
+            />
+          </Field>
+          <Field id="tiktok" label={texts.tiktok} error={tiktokError}>
+            <Input
+              id="tiktok"
+              value={tiktok}
+              data-invalid={tiktokError ? true : undefined}
+              onChange={(event) => {
+                setTiktok(event.target.value);
+                setTiktokError(null);
               }}
             />
           </Field>
         </div>
-        {editing && hallId && (
-          <HallGallery hallId={hallId} images={images} onChange={setImages} />
+        {editing && trainerId && (
+          <HallGallery
+            hallId={trainerId}
+            filesBase={`/trainers/${trainerId}`}
+            removeBody={texts.trainerFileBody}
+            images={images}
+            onChange={setImages}
+          />
         )}
       </form>
     </div>

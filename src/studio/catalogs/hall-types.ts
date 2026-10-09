@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const hallFileSchema = z.object({
+export const hallFileSchema = z.object({
   id: z.string(),
   index: z.number(),
   kind: z.enum(['image', 'video']),
@@ -12,6 +12,7 @@ export const hallSchema = z.object({
   id: z.string(),
   name: z.string(),
   address: z.string(),
+  description: z.string().nullable().nullish(),
   videoLink: z.string().nullable(),
   images: z.array(hallFileSchema),
   createdAt: z.string(),
@@ -19,6 +20,9 @@ export const hallSchema = z.object({
 });
 export type Hall = z.infer<typeof hallSchema>;
 export type HallFile = Hall['images'][number];
+export const recordImagesSchema = z.object({
+  images: z.array(hallFileSchema),
+});
 
 export const hallPageSchema = z.object({
   items: z.array(hallSchema),

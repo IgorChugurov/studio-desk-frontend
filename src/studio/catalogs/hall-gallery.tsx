@@ -8,17 +8,21 @@ import { notify } from '../../shared/ui/toaster';
 import { getApi } from '../api/api';
 import { useSession } from '../api/session-provider';
 import { copy } from '../i18n/language';
-import { hallSchema, type HallFile } from './hall-types';
+import { recordImagesSchema, type HallFile } from './hall-types';
 
 /** Files of a saved hall. Adding, deleting, and reordering do not save the form. */
 export function HallGallery({
   hallId,
   images,
   onChange,
+  filesBase,
+  removeBody,
 }: {
   hallId: string;
   images: HallFile[];
   onChange: (images: HallFile[]) => void;
+  filesBase?: string;
+  removeBody?: string;
 }) {
   const session = useSession();
   const texts = copy(session.status === 'signed-in' ? session.language : 'en');
@@ -27,12 +31,14 @@ export function HallGallery({
   const [removing, setRemoving] = useState<HallFile | null>(null);
   const [pending, setPending] = useState(false);
   const ordered = images.slice().sort((a, b) => a.index - b.index);
+  const filesPath = filesBase ?? `/halls/${hallId}`;
+  const removeSentence = removeBody ?? texts.removeFileBody;
 
   async function add(list: FileList | null) {
     if (!list || list.length === 0) return;
     try {
-      const hall = hallSchema.parse(
-        await getApi().upload(`/halls/${hallId}/files`, Array.from(list)),
+      const hall = recordImagesSchema.parse(
+        await getApi().upload(`${filesPath}/files`, Array.from(list)),
       );
       onChange(hall.images);
     } catch {
@@ -46,8 +52,8 @@ export function HallGallery({
     if (!removing) return;
     setPending(true);
     try {
-      const hall = hallSchema.parse(
-        await getApi().request(`/halls/${hallId}/files/${removing.id}`, {
+      const hall = recordImagesSchema.parse(
+        await getApi().request(`${filesPath}/files/${removing.id}`, {
           method: 'DELETE',
         }),
       );
@@ -72,8 +78,8 @@ export function HallGallery({
     const previous = ordered;
     onChange(next.map((file, index) => ({ ...file, index })));
     try {
-      const hall = hallSchema.parse(
-        await getApi().request(`/halls/${hallId}/files/order`, {
+      const hall = recordImagesSchema.parse(
+        await getApi().request(`${filesPath}/files/order`, {
           method: 'PUT',
           body: { fileIds: next.map((file) => file.id) },
         }),
@@ -160,7 +166,7 @@ export function HallGallery({
           </>
         }
       >
-        <p>{texts.removeFileBody}</p>
+        <p>{removeSentence}</p>
       </Modal>
     </div>
   );
@@ -189,7 +195,16 @@ function FilePreview({ file }: { file: HallFile }) {
 
   if (!src) return null;
   if (file.kind === 'video') {
-    return <video src={src} className="h-full w-full object-cover" />;
+    return (
+      <video
+        src={src}
+        controls
+        muted
+        playsInline
+        preload="metadata"
+        className="h-full w-full object-cover"
+      />
+    );
   }
   return <img src={src} alt="" className="h-full w-full object-cover" />;
 }

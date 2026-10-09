@@ -1,5 +1,10 @@
-import { EmptyCatalogTab } from '../../../../../studio/catalogs/empty-catalog-tab';
+import { Suspense } from 'react';
+import { TrainerList } from '../../../../../studio/catalogs/trainer-list';
 
 export default function TrainersPage() {
-  return <EmptyCatalogTab tab="trainers" />;
+  return (
+    <Suspense>
+      <TrainerList />
+    </Suspense>
+  );
 }

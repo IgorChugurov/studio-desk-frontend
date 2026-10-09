@@ -98,6 +98,27 @@ const en = {
   fileRemoved: 'File removed',
   fileRemove: 'Remove',
   fileCancel: 'Cancel',
+  description: 'Description',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  addTrainer: 'Add trainer',
+  newTrainer: 'New trainer',
+  noTrainers: 'No trainers yet',
+  noTrainersFound: 'No trainers found',
+  trainerAdded: 'Trainer added',
+  trainerUpdated: 'Trainer updated',
+  enterInstagram: 'Enter an Instagram link',
+  enterTiktok: 'Enter a TikTok link',
+  trainerFileBody:
+    'This file will be removed from the trainer. You can add it again at any time',
+  addClassType: 'Add class type',
+  newClassType: 'New class type',
+  noClassTypes: 'No class types yet',
+  noClassTypesFound: 'No class types found',
+  classTypeAdded: 'Class type added',
+  classTypeUpdated: 'Class type updated',
+  classTypeFileBody:
+    'This file will be removed from the class type. You can add it again at any time',
 };
 const sk: typeof en = {
   signOut: 'Sign out',
@@ -176,6 +197,27 @@ const sk: typeof en = {
   fileRemoved: 'File removed',
   fileRemove: 'Remove',
   fileCancel: 'Cancel',
+  description: 'Description',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  addTrainer: 'Add trainer',
+  newTrainer: 'New trainer',
+  noTrainers: 'No trainers yet',
+  noTrainersFound: 'No trainers found',
+  trainerAdded: 'Trainer added',
+  trainerUpdated: 'Trainer updated',
+  enterInstagram: 'Enter an Instagram link',
+  enterTiktok: 'Enter a TikTok link',
+  trainerFileBody:
+    'This file will be removed from the trainer. You can add it again at any time',
+  addClassType: 'Add class type',
+  newClassType: 'New class type',
+  noClassTypes: 'No class types yet',
+  noClassTypesFound: 'No class types found',
+  classTypeAdded: 'Class type added',
+  classTypeUpdated: 'Class type updated',
+  classTypeFileBody:
+    'This file will be removed from the class type. You can add it again at any time',
 };
 const uk: typeof en = {
   signOut: 'Sign out',
@@ -254,6 +296,27 @@ const uk: typeof en = {
   fileRemoved: 'File removed',
   fileRemove: 'Remove',
   fileCancel: 'Cancel',
+  description: 'Description',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  addTrainer: 'Add trainer',
+  newTrainer: 'New trainer',
+  noTrainers: 'No trainers yet',
+  noTrainersFound: 'No trainers found',
+  trainerAdded: 'Trainer added',
+  trainerUpdated: 'Trainer updated',
+  enterInstagram: 'Enter an Instagram link',
+  enterTiktok: 'Enter a TikTok link',
+  trainerFileBody:
+    'This file will be removed from the trainer. You can add it again at any time',
+  addClassType: 'Add class type',
+  newClassType: 'New class type',
+  noClassTypes: 'No class types yet',
+  noClassTypesFound: 'No class types found',
+  classTypeAdded: 'Class type added',
+  classTypeUpdated: 'Class type updated',
+  classTypeFileBody:
+    'This file will be removed from the class type. You can add it again at any time',
 };
 
 const dictionaries = { en, sk, uk };

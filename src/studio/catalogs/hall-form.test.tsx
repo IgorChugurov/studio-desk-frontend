@@ -85,7 +85,12 @@ describe('Hall form', () => {
     });
     expect(request).toHaveBeenCalledWith('/halls', {
       method: 'POST',
-      body: { name: 'Main hall', address: 'Hlavná 1', videoLink: null },
+      body: {
+        name: 'Main hall',
+        address: 'Hlavná 1',
+        description: null,
+        videoLink: null,
+      },
     });
     expect(push).toHaveBeenCalledWith('/catalogs');
   });
