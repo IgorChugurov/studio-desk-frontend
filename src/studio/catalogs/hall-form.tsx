@@ -2,19 +2,24 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { z } from 'zod';
 import { Button } from '../../shared/ui/button';
 import { Field } from '../../shared/ui/field';
 import { Input } from '../../shared/ui/input';
+import { Select } from '../../shared/ui/select';
 import { notify } from '../../shared/ui/toaster';
 import { ApiError } from '../api/api-error';
 import { getApi } from '../api/api';
 import { useSession } from '../api/session-provider';
 import { copy } from '../i18n/language';
 import { useCrumbs } from '../shell/crumbs';
+import { addressAfterTypeChange, type HallType } from './hall-address';
 import { CatalogTabs } from './catalog-tabs';
 import { HallGallery } from './hall-gallery';
 import { hallSchema, type HallFile } from './hall-types';
 import { isVideoLink } from './video-link';
+
+const TIME_ZONES = Intl.supportedValuesOf('timeZone').sort();
 
 /** Create a hall, or edit its name, address, video link, and gallery. */
 export function HallForm({ hallId }: { hallId?: string }) {
@@ -22,8 +27,10 @@ export function HallForm({ hallId }: { hallId?: string }) {
   const texts = copy(session.status === 'signed-in' ? session.language : 'en');
   const router = useRouter();
   const editing = hallId !== undefined;
+  const [type, setType] = useState<HallType>('ordinary');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [timeZone, setTimeZone] = useState('');
   const [description, setDescription] = useState('');
   const [videoLink, setVideoLink] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
@@ -41,15 +48,31 @@ export function HallForm({ hallId }: { hallId?: string }) {
   ]);
 
   useEffect(() => {
-    if (!hallId) return;
     let gone = false;
+    if (!hallId) {
+      void getApi()
+        .request<unknown>('/settings')
+        .then((body) => {
+          if (gone) return;
+          const zone = z.object({ timeZone: z.string() }).parse(body).timeZone;
+          setTimeZone(zone);
+        })
+        .catch(() => {
+          if (!gone) setTimeZone('');
+        });
+      return () => {
+        gone = true;
+      };
+    }
     void getApi()
       .request<unknown>(`/halls/${hallId}`)
       .then((body) => {
         if (gone) return;
         const hall = hallSchema.parse(body);
+        setType(hall.type);
         setName(hall.name);
         setAddress(hall.address);
+        setTimeZone(hall.timeZone);
         setDescription(hall.description ?? '');
         setVideoLink(hall.videoLink ?? '');
         setImages(hall.images);
@@ -86,7 +109,8 @@ export function HallForm({ hallId }: { hallId?: string }) {
     event.preventDefault();
     if (pending) return;
     const nextName = name.trim() === '' ? texts.enterName : null;
-    const nextAddress = address.trim() === '' ? texts.enterAddress : null;
+    const nextAddress =
+      type === 'ordinary' && address.trim() === '' ? texts.enterAddress : null;
     const nextVideo =
       videoLink.trim() !== '' && !isVideoLink(videoLink.trim())
         ? texts.enterVideoLink
@@ -97,8 +121,10 @@ export function HallForm({ hallId }: { hallId?: string }) {
     if (nextName || nextAddress || nextVideo) return;
 
     const body = {
+      type,
       name: name.trim(),
-      address: address.trim(),
+      address: type === 'virtual' ? 'Virtual hall' : address.trim(),
+      ...(timeZone === '' ? {} : { timeZone }),
       description: description.trim() === '' ? null : description.trim(),
       videoLink: videoLink.trim() === '' ? null : videoLink.trim(),
     };
@@ -141,6 +167,22 @@ export function HallForm({ hallId }: { hallId?: string }) {
           </Button>
         </div>
         <div className="flex max-w-xl flex-col gap-[var(--space-400)]">
+          <Field id="type" label={texts.hallType} required>
+            <Select
+              id="type"
+              value={type}
+              onValueChange={(next) => {
+                const hallType = next as HallType;
+                setAddress(addressAfterTypeChange(hallType, type, address));
+                setType(hallType);
+                setAddressError(null);
+              }}
+              options={[
+                { value: 'ordinary', label: texts.ordinary },
+                { value: 'virtual', label: texts.virtual },
+              ]}
+            />
+          </Field>
           <Field id="name" label={texts.name} required error={nameError}>
             <Input
               id="name"
@@ -161,11 +203,20 @@ export function HallForm({ hallId }: { hallId?: string }) {
             <Input
               id="address"
               value={address}
+              readOnly={type === 'virtual'}
               data-invalid={addressError ? true : undefined}
               onChange={(event) => {
                 setAddress(event.target.value);
                 setAddressError(null);
               }}
+            />
+          </Field>
+          <Field id="time-zone" label={texts.timeZone} required>
+            <Select
+              id="time-zone"
+              value={timeZone}
+              onValueChange={setTimeZone}
+              options={TIME_ZONES.map((zone) => ({ value: zone, label: zone }))}
             />
           </Field>
           <Field id="description" label={texts.description}>

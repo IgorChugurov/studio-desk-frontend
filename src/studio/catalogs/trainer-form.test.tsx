@@ -63,7 +63,15 @@ describe('Trainer form', () => {
   });
 
   it('creates without a gallery and keeps empty optional fields', async () => {
-    request.mockResolvedValue(trainer);
+    request.mockImplementation((path: string) => {
+      if (String(path).startsWith('/class-types')) {
+        return Promise.resolve({
+          items: [],
+          meta: { totalPages: 0 },
+        });
+      }
+      return Promise.resolve(trainer);
+    });
     render(<TrainerForm />);
     expect(screen.queryByRole('button', { name: 'Add file' })).toBeNull();
     fireEvent.change(screen.getByRole('textbox', { name: /^Name/ }), {
@@ -80,6 +88,7 @@ describe('Trainer form', () => {
         description: null,
         instagram: null,
         tiktok: null,
+        classTypeIds: [],
       },
     });
   });
@@ -96,7 +105,10 @@ describe('Trainer form', () => {
     expect(screen.getByText('Enter a name')).toBeTruthy();
     expect(screen.getByText('Enter an Instagram link')).toBeTruthy();
     expect(screen.getByText('Enter a TikTok link')).toBeTruthy();
-    expect(request).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalledWith(
+      '/trainers',
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 
   it('shows a video on edit and reorders without saving the trainer', async () => {

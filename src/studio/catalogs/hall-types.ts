@@ -10,8 +10,10 @@ export const hallFileSchema = z.object({
 
 export const hallSchema = z.object({
   id: z.string(),
+  type: z.enum(['ordinary', 'virtual']),
   name: z.string(),
   address: z.string(),
+  timeZone: z.string(),
   description: z.string().nullable().nullish(),
   videoLink: z.string().nullable(),
   images: z.array(hallFileSchema),

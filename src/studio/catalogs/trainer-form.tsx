@@ -6,12 +6,14 @@ import { z } from 'zod';
 import { Button } from '../../shared/ui/button';
 import { Field } from '../../shared/ui/field';
 import { Input } from '../../shared/ui/input';
+import { MultiSelect } from '../../shared/ui/multi-select';
 import { notify } from '../../shared/ui/toaster';
 import { ApiError } from '../api/api-error';
 import { getApi } from '../api/api';
 import { useSession } from '../api/session-provider';
 import { copy } from '../i18n/language';
 import { useCrumbs } from '../shell/crumbs';
+import { loadNamedRecords } from './catalog-options';
 import { CatalogTabs } from './catalog-tabs';
 import { HallGallery } from './hall-gallery';
 import { recordImagesSchema, type HallFile } from './hall-types';
@@ -22,6 +24,7 @@ const trainerSchema = z.object({
   description: z.string().nullable().nullish(),
   instagram: z.string().nullable().nullish(),
   tiktok: z.string().nullable().nullish(),
+  classTypeIds: z.array(z.string()).optional(),
   images: recordImagesSchema.shape.images,
 });
 
@@ -39,6 +42,10 @@ export function TrainerForm({ trainerId }: { trainerId?: string }) {
   const [description, setDescription] = useState('');
   const [instagram, setInstagram] = useState('');
   const [tiktok, setTiktok] = useState('');
+  const [classTypeIds, setClassTypeIds] = useState<string[]>([]);
+  const [classTypes, setClassTypes] = useState<{ id: string; name: string }[]>(
+    [],
+  );
   const [nameError, setNameError] = useState<string | null>(null);
   const [instagramError, setInstagramError] = useState<string | null>(null);
   const [tiktokError, setTiktokError] = useState<string | null>(null);
@@ -58,8 +65,19 @@ export function TrainerForm({ trainerId }: { trainerId?: string }) {
   ]);
 
   useEffect(() => {
-    if (!trainerId) return;
     let gone = false;
+    void loadNamedRecords('/class-types')
+      .then((rows) => {
+        if (!gone) setClassTypes(rows);
+      })
+      .catch(() => {
+        if (!gone) notify.error(texts.somethingWentWrong);
+      });
+    if (!trainerId) {
+      return () => {
+        gone = true;
+      };
+    }
     void getApi()
       .request<unknown>(`/trainers/${trainerId}`)
       .then((body) => {
@@ -69,6 +87,7 @@ export function TrainerForm({ trainerId }: { trainerId?: string }) {
         setDescription(trainer.description ?? '');
         setInstagram(trainer.instagram ?? '');
         setTiktok(trainer.tiktok ?? '');
+        setClassTypeIds(trainer.classTypeIds ?? []);
         setImages(trainer.images);
       })
       .catch(() => notify.error(texts.somethingWentWrong));
@@ -121,6 +140,7 @@ export function TrainerForm({ trainerId }: { trainerId?: string }) {
       description: blank(description),
       instagram: blank(instagram),
       tiktok: blank(tiktok),
+      classTypeIds,
     };
     setPending(true);
     try {
@@ -202,6 +222,21 @@ export function TrainerForm({ trainerId }: { trainerId?: string }) {
                 setTiktok(event.target.value);
                 setTiktokError(null);
               }}
+            />
+          </Field>
+          <Field id="class-types" label={texts.classTypes}>
+            <MultiSelect
+              id="class-types"
+              value={classTypeIds}
+              onChange={setClassTypeIds}
+              options={classTypes.map((item) => ({
+                value: item.id,
+                label: item.name,
+              }))}
+              placeholder={texts.classTypes}
+              searchPlaceholder={texts.searchOptions}
+              emptyText={texts.noOptionsFound}
+              allSelectedText={texts.allSelected}
             />
           </Field>
         </div>

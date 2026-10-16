@@ -35,7 +35,18 @@ describe('Class type form', () => {
   });
 
   it('creates without a gallery and keeps an empty description', async () => {
-    request.mockResolvedValue({ name: 'Yoga', description: null, images: [] });
+    request.mockImplementation((path: string) => {
+      if (String(path).startsWith('/trainers')) {
+        return Promise.resolve({ items: [], meta: { totalPages: 0 } });
+      }
+      return Promise.resolve({
+        name: 'Yoga',
+        description: null,
+        defaultDuration: 60,
+        trainerIds: [],
+        images: [],
+      });
+    });
     render(<ClassTypeForm />);
     expect(screen.queryByRole('button', { name: 'Add file' })).toBeNull();
     fireEvent.change(screen.getByRole('textbox', { name: /^Name/ }), {
@@ -47,7 +58,32 @@ describe('Class type form', () => {
     });
     expect(request).toHaveBeenCalledWith('/class-types', {
       method: 'POST',
-      body: { name: 'Yoga', description: null },
+      body: {
+        name: 'Yoga',
+        description: null,
+        defaultDuration: 60,
+        trainerIds: [],
+      },
     });
+  });
+
+  it('refuses a duration that is not a step of five', () => {
+    request.mockResolvedValue({ items: [], meta: { totalPages: 0 } });
+    render(<ClassTypeForm />);
+    fireEvent.change(screen.getByRole('textbox', { name: /^Name/ }), {
+      target: { value: 'Yoga' },
+    });
+    fireEvent.change(
+      screen.getByRole('textbox', { name: /^Default duration/ }),
+      { target: { value: '7' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(
+      screen.getByText('Enter a duration from 5 to 240 minutes in steps of 5'),
+    ).toBeTruthy();
+    expect(request).not.toHaveBeenCalledWith(
+      '/class-types',
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 });

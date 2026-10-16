@@ -37,8 +37,10 @@ vi.mock('../../shared/ui/toaster', () => ({
 
 const hall = {
   id: 'h1',
+  type: 'ordinary' as const,
   name: 'Main hall',
   address: 'Hlavná 1',
+  timeZone: 'Europe/Bratislava',
   videoLink: null,
   images: [
     {
@@ -79,6 +81,7 @@ describe('Hall form', () => {
     fireEvent.change(screen.getByRole('textbox', { name: /^Address/ }), {
       target: { value: 'Hlavná 1' },
     });
+    await screen.findByText('Europe/Bratislava');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => {
       expect(notify.success).toHaveBeenCalledWith('Hall added');
@@ -86,8 +89,10 @@ describe('Hall form', () => {
     expect(request).toHaveBeenCalledWith('/halls', {
       method: 'POST',
       body: {
+        type: 'ordinary',
         name: 'Main hall',
         address: 'Hlavná 1',
+        timeZone: 'Europe/Bratislava',
         description: null,
         videoLink: null,
       },
@@ -105,7 +110,10 @@ describe('Hall form', () => {
     expect(screen.getByText('Enter a name')).toBeTruthy();
     expect(screen.getByText('Enter an address')).toBeTruthy();
     expect(screen.getByText('Enter a YouTube or Vimeo link')).toBeTruthy();
-    expect(request).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalledWith(
+      '/halls',
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 
   it('shows an image, a video, and removes a file only after confirmation', async () => {
