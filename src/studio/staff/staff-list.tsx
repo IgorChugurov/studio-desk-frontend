@@ -23,6 +23,7 @@ import {
 import { notify } from '../../shared/ui/toaster';
 import { getApi } from '../api/api';
 import { useSession } from '../api/session-provider';
+import { loadNamedRecords } from '../catalogs/catalog-options';
 import { copy } from '../i18n/language';
 import { useCrumbs } from '../shell/crumbs';
 import { RemoveStaffDialog } from './remove-staff-dialog';
@@ -38,17 +39,25 @@ export function StaffList() {
   const page = Number(search.get('page') ?? '1') || 1;
   const perPage = Number(search.get('perPage') ?? '15') || 15;
   const [items, setItems] = useState<StaffMember[] | null>(null);
+  const [names, setNames] = useState<Map<string, string>>(new Map());
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [removing, setRemoving] = useState<StaffMember | null>(null);
   const [pending, setPending] = useState(false);
 
   function load(nextPage = page, nextPerPage = perPage) {
-    void getApi()
-      .request<unknown>(`/staff?page=${nextPage}&perPage=${nextPerPage}`)
-      .then((body) => {
+    void Promise.all([
+      getApi().request<unknown>(
+        `/staff?page=${nextPage}&perPage=${nextPerPage}`,
+      ),
+      loadNamedRecords('/trainers'),
+    ])
+      .then(([body, trainers]) => {
         const parsed = staffPageSchema.parse(body);
         setItems(parsed.items);
+        setNames(
+          new Map(trainers.map((trainer) => [trainer.id, trainer.name])),
+        );
         setTotalItems(parsed.meta.totalItems);
         setTotalPages(parsed.meta.totalPages);
       })
@@ -114,6 +123,7 @@ export function StaffList() {
                 <TableRow>
                   <TableHead>{texts.emailLabel}</TableHead>
                   <TableHead>{texts.role}</TableHead>
+                  <TableHead>{texts.trainer}</TableHead>
                   <TableHead>{texts.added}</TableHead>
                   <TableHead className="w-14" />
                 </TableRow>
@@ -126,10 +136,11 @@ export function StaffList() {
                     onClick={() => router.push(`/staff/${member.id}`)}
                   >
                     <TableCell>{member.email}</TableCell>
+                    <TableCell>{roleLabel(member.role, texts)}</TableCell>
                     <TableCell>
-                      {member.role === 'administrator'
-                        ? texts.administrator
-                        : texts.accountant}
+                      {member.trainerId
+                        ? (names.get(member.trainerId) ?? '')
+                        : ''}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {formatAdded(member.createdAt)}
@@ -194,4 +205,13 @@ export function StaffList() {
       />
     </div>
   );
+}
+
+function roleLabel(
+  role: StaffMember['role'],
+  texts: { administrator: string; accountant: string; trainer: string },
+) {
+  if (role === 'administrator') return texts.administrator;
+  if (role === 'trainer') return texts.trainer;
+  return texts.accountant;
 }
