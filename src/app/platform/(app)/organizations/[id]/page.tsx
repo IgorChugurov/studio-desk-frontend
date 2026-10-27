@@ -1,7 +1,7 @@
 import { StudioPage } from '../../../../../platform/studios/studio-page';
 
-/** Editing a studio. */
-export default async function EditStudioPage({
+/** Editing an organization. */
+export default async function EditOrganizationPage({
   params,
 }: {
   params: Promise<{ id: string }>;

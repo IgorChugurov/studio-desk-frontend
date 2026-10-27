@@ -8,6 +8,11 @@ import { Input } from '../../shared/ui/input';
 import { Modal } from '../../shared/ui/modal';
 import { notify } from '../../shared/ui/toaster';
 import { ApiError } from '../api/api-error';
+import { Select } from '../../shared/ui/select';
+import {
+  SECTION_LABELS,
+  SECTION_ORDER,
+} from '../../shared/organization-config';
 import { StatusTag } from './status-tag';
 import {
   EMPTY_VALUES,
@@ -22,7 +27,7 @@ import {
   type FieldName,
   type StudioValues,
 } from './studio-rules';
-import type { StudioStatus } from './studio-types';
+import type { OrganizationStatus } from './studio-types';
 
 const FAILED_TEXT = 'Something went wrong. Try again';
 
@@ -38,6 +43,9 @@ function fieldErrorsOf(error: unknown): FieldErrors | null {
   if (error.code === 'DOMAIN_TAKEN') {
     return { customDomain: FIELD_TEXTS.customDomainTaken };
   }
+  if (error.code === 'OWNER_IS_STAFF') {
+    return { ownerEmail: FIELD_TEXTS.ownerIsStaff };
+  }
   if (error.code === 'VALIDATION_ERROR' && error.fieldErrors.length > 0) {
     const errors: FieldErrors = {};
     for (const { field } of error.fieldErrors) {
@@ -47,6 +55,9 @@ function fieldErrorsOf(error: unknown): FieldErrors | null {
         errors.customDomain = FIELD_TEXTS.customDomain;
       } else if (field === 'owner.email') {
         errors.ownerEmail = FIELD_TEXTS.ownerEmail;
+      } else if (field === 'presetId') errors.presetId = FIELD_TEXTS.preset;
+      else if (field === 'sections' || field.startsWith('sections')) {
+        errors.sections = FIELD_TEXTS.sections;
       }
     }
     return Object.keys(errors).length > 0 ? errors : null;
@@ -55,29 +66,36 @@ function fieldErrorsOf(error: unknown): FieldErrors | null {
 }
 
 /**
- * The form of one studio, for creating and for editing. It checks the formats
- * for early feedback and shows the server errors at the fields they name.
- * When an address or the owner changes, the "Confirm changes" window comes
- * before saving.
+ * The form of one organization, for creating and for editing. It checks the
+ * formats for early feedback and shows the server errors at the fields they
+ * name. When an address or the owner changes, the "Confirm changes" window
+ * comes before saving.
  */
 export function StudioForm({
   initial,
   status,
+  presets = [],
   extraActions,
   onSave,
   onBack,
 }: {
-  /** The loaded values when editing; empty for a new studio. */
+  /** The loaded values when editing; empty for a new organization. */
   initial?: StudioValues;
   /** Shown only when editing. */
-  status?: StudioStatus;
+  status?: OrganizationStatus;
+  /** Presets offered when creating. The first one is selected. */
+  presets?: { id: string; name: string }[];
   /** Buttons between "Back" and "Update" (editing only). */
   extraActions?: ReactNode;
   onSave: (values: StudioValues) => Promise<void>;
   onBack: () => void;
 }) {
   const editing = initial !== undefined;
-  const loaded = initial ?? EMPTY_VALUES;
+  const loaded = initial ?? {
+    ...EMPTY_VALUES,
+    presetId: presets[0]?.id ?? '',
+    presetName: presets[0]?.name ?? '',
+  };
   const [values, setValues] = useState<StudioValues>(loaded);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [pending, setPending] = useState(false);
@@ -90,7 +108,8 @@ export function StudioForm({
     ? hasChanges(loaded, values)
     : values.name.trim() !== '' &&
       values.subdomain.trim() !== '' &&
-      values.ownerEmail.trim() !== '';
+      values.ownerEmail.trim() !== '' &&
+      values.presetId.trim() !== '';
 
   function change(field: FieldName, value: string) {
     setValues((current) => {
@@ -124,7 +143,7 @@ export function StudioForm({
     if (pending || !canSave) return;
     const normalized = normalize(values);
     setValues(normalized);
-    const found = validate(normalized);
+    const found = validate(normalized, editing ? 'edit' : 'create');
     setErrors(found);
     if (Object.keys(found).length > 0) return;
     if (warnings.length > 0) {
@@ -166,7 +185,7 @@ export function StudioForm({
             id="name"
             size="sm"
             autoComplete="off"
-            placeholder="Studio name"
+            placeholder="Organization name"
             value={values.name}
             data-invalid={errors.name ? true : undefined}
             aria-describedby={errors.name ? 'name-message' : undefined}
@@ -187,7 +206,7 @@ export function StudioForm({
             id="subdomain"
             size="sm"
             autoComplete="off"
-            placeholder="studio-slug"
+            placeholder="organization-slug"
             value={values.subdomain}
             data-invalid={errors.subdomain ? true : undefined}
             aria-describedby="subdomain-message"
@@ -204,7 +223,7 @@ export function StudioForm({
             id="customDomain"
             size="sm"
             autoComplete="off"
-            placeholder="studio.example.com"
+            placeholder="organization.example.com"
             value={values.customDomain}
             data-invalid={errors.customDomain ? true : undefined}
             aria-describedby={
@@ -234,6 +253,80 @@ export function StudioForm({
             onChange={(event) => change('ownerEmail', event.target.value)}
           />
         </Field>
+
+        {editing ? (
+          <Field id="preset" label="Preset">
+            <Input
+              id="preset"
+              size="sm"
+              readOnly
+              disabled
+              value={values.presetName}
+            />
+          </Field>
+        ) : (
+          <Field id="preset" label="Preset" required error={errors.presetId}>
+            <Select
+              id="preset"
+              value={values.presetId}
+              invalid={Boolean(errors.presetId)}
+              placeholder="Select a preset"
+              disabled={presets.length === 0}
+              onValueChange={(presetId) => {
+                const preset = presets.find((item) => item.id === presetId);
+                setValues((current) => ({
+                  ...current,
+                  presetId,
+                  presetName: preset?.name ?? current.presetName,
+                }));
+                setErrors((current) => ({ ...current, presetId: undefined }));
+              }}
+              options={presets.map((preset) => ({
+                value: preset.id,
+                label: preset.name,
+              }))}
+            />
+          </Field>
+        )}
+
+        {editing && (
+          <fieldset className="flex flex-col gap-[var(--space-200)]">
+            <legend className="text-[var(--text-gray-secondary)]">
+              Enabled sections
+            </legend>
+            {SECTION_ORDER.map((section) => (
+              <label
+                key={section}
+                className="flex items-center gap-[var(--space-200)] text-[var(--text-gray-default)]"
+              >
+                <input
+                  type="checkbox"
+                  checked={values.sections.includes(section)}
+                  onChange={(event) => {
+                    const sections = event.target.checked
+                      ? [...values.sections, section]
+                      : values.sections.filter((item) => item !== section);
+                    setValues((current) => ({ ...current, sections }));
+                    setErrors((current) => ({
+                      ...current,
+                      sections: undefined,
+                    }));
+                  }}
+                />
+                <span>{SECTION_LABELS[section]}</span>
+              </label>
+            ))}
+            {errors.sections && (
+              <p
+                id="sections-message"
+                role="alert"
+                className="text-[var(--text-error-default)]"
+              >
+                {errors.sections}
+              </p>
+            )}
+          </fieldset>
+        )}
       </div>
 
       <Modal
@@ -268,8 +361,8 @@ export function StudioForm({
         }
       >
         <p>
-          These changes affect access to the studio and may break existing links
-          or sessions
+          These changes affect access to the organization and may break existing
+          links or sessions
         </p>
         {warnings.map((line) => (
           <p key={line}>{line}</p>

@@ -5,20 +5,24 @@ import { useRouter } from 'next/navigation';
 import { Button } from '../../shared/ui/button';
 import { ApiError } from '../api/api-error';
 import { getApi } from '../api/api';
-import type { StudioRef } from '../api/auth-types';
+import type { OrganizationRef } from '../api/auth-types';
 import { copy, readLanguageCookie } from '../i18n/language';
 
 /** The first-entry list. There is no session yet, and no navbar. */
-export function StudioSelect({ studios }: { studios: StudioRef[] }) {
+export function StudioSelect({
+  organizations,
+}: {
+  organizations: OrganizationRef[];
+}) {
   const texts = copy(readLanguageCookie());
   const router = useRouter();
   const [pending, setPending] = useState<string | null>(null);
 
-  async function choose(studioId: string) {
+  async function choose(organizationId: string) {
     if (pending) return;
-    setPending(studioId);
+    setPending(organizationId);
     try {
-      await getApi().auth.selectStudio(studioId);
+      await getApi().auth.selectOrganization(organizationId);
       router.replace('/');
     } catch (error) {
       if (
@@ -39,17 +43,17 @@ export function StudioSelect({ studios }: { studios: StudioRef[] }) {
           {texts.chooseStudio}
         </h1>
         <ul className="flex flex-col gap-[var(--space-200)]">
-          {studios.map((studio) => (
-            <li key={studio.id}>
+          {organizations.map((organization) => (
+            <li key={organization.id}>
               <Button
                 type="button"
                 variant="outlined"
                 size="lg"
                 className="w-full"
-                loading={pending === studio.id}
-                onClick={() => void choose(studio.id)}
+                loading={pending === organization.id}
+                onClick={() => void choose(organization.id)}
               >
-                {studio.name}
+                {organization.name}
               </Button>
             </li>
           ))}

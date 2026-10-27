@@ -3,6 +3,15 @@ export interface FieldError {
   field: string;
 }
 
+/** Occupancy details on `HALL_BUSY` and `TRAINER_BUSY`. `message` is not kept. */
+export interface ApiConflict {
+  classTypeName?: string;
+  trainerName?: string;
+  hallName?: string;
+  start: string;
+  end: string;
+}
+
 /**
  * An error answer of the studio API. The screen text is chosen by `code` and
  * `field`; the server `message` is never kept or shown.
@@ -12,6 +21,7 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     readonly fieldErrors: FieldError[] = [],
+    readonly conflict?: ApiConflict,
   ) {
     super(`${status} ${code}`);
     this.name = 'ApiError';
@@ -51,5 +61,26 @@ export async function toApiError(response: Response): Promise<ApiError> {
       }
     }
   }
-  return new ApiError(response.status, body.code, fieldErrors);
+  return new ApiError(
+    response.status,
+    body.code,
+    fieldErrors,
+    readConflict(body.conflict),
+  );
+}
+
+function readConflict(value: unknown): ApiConflict | undefined {
+  if (!isRecord(value)) return undefined;
+  if (typeof value.start !== 'string' || typeof value.end !== 'string') {
+    return undefined;
+  }
+  return {
+    classTypeName:
+      typeof value.classTypeName === 'string' ? value.classTypeName : undefined,
+    trainerName:
+      typeof value.trainerName === 'string' ? value.trainerName : undefined,
+    hallName: typeof value.hallName === 'string' ? value.hallName : undefined,
+    start: value.start.slice(0, 5),
+    end: value.end.slice(0, 5),
+  };
 }

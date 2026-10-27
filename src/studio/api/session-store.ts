@@ -1,14 +1,17 @@
+import type { OrganizationConfig } from './auth-types';
+
 export type Session =
   | { status: 'loading' }
   | { status: 'signed-out'; reason?: 'expired' }
   | {
       status: 'signed-in';
       email: string;
-      studioId: string;
-      studioName: string;
+      organizationId: string;
+      organizationName: string;
       language: 'en' | 'sk' | 'uk';
       sections: string[];
-      studios: { id: string; name: string }[];
+      organizations: { id: string; name: string }[];
+      config: OrganizationConfig;
     };
 
 /** Session state for the screens. The access token is not stored here. */

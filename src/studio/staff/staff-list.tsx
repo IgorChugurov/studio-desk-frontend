@@ -23,16 +23,23 @@ import {
 import { notify } from '../../shared/ui/toaster';
 import { getApi } from '../api/api';
 import { useSession } from '../api/session-provider';
-import { loadNamedRecords } from '../catalogs/catalog-options';
-import { copy } from '../i18n/language';
+import { copy, type Lang } from '../i18n/language';
 import { useCrumbs } from '../shell/crumbs';
 import { RemoveStaffDialog } from './remove-staff-dialog';
+import { loadPersonResources, personLabel, personTypes } from './staff-form';
 import { formatAdded, staffPageSchema, type StaffMember } from './staff-types';
 
 /** Staff table. The owner is not in the list. */
 export function StaffList() {
   const session = useSession();
-  const texts = copy(session.status === 'signed-in' ? session.language : 'en');
+  const language: Lang =
+    session.status === 'signed-in' ? session.language : 'en';
+  const texts = copy(language);
+  const people = personTypes(
+    session.status === 'signed-in' ? session.config : undefined,
+  );
+  const specialistName = personLabel(people, language, texts.specialist);
+  const typeKey = people.map((type) => type.id).join(',');
   useCrumbs([{ label: texts.staff }]);
   const router = useRouter();
   const search = useSearchParams();
@@ -46,18 +53,17 @@ export function StaffList() {
   const [pending, setPending] = useState(false);
 
   function load(nextPage = page, nextPerPage = perPage) {
+    const typeIds = typeKey === '' ? [] : typeKey.split(',');
     void Promise.all([
       getApi().request<unknown>(
-        `/staff?page=${nextPage}&perPage=${nextPerPage}`,
+        `/staff?currentPage=${nextPage}&perPage=${nextPerPage}`,
       ),
-      loadNamedRecords('/trainers'),
+      loadPersonResources(typeIds),
     ])
-      .then(([body, trainers]) => {
+      .then(([body, cards]) => {
         const parsed = staffPageSchema.parse(body);
         setItems(parsed.items);
-        setNames(
-          new Map(trainers.map((trainer) => [trainer.id, trainer.name])),
-        );
+        setNames(new Map(cards.map((card) => [card.id, card.name])));
         setTotalItems(parsed.meta.totalItems);
         setTotalPages(parsed.meta.totalPages);
       })
@@ -68,7 +74,7 @@ export function StaffList() {
     load();
     // Reload when the page address changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, perPage]);
+  }, [page, perPage, typeKey]);
 
   function go(nextPage: number, nextPerPage = perPage) {
     const params = new URLSearchParams();
@@ -123,7 +129,7 @@ export function StaffList() {
                 <TableRow>
                   <TableHead>{texts.emailLabel}</TableHead>
                   <TableHead>{texts.role}</TableHead>
-                  <TableHead>{texts.trainer}</TableHead>
+                  <TableHead>{specialistName}</TableHead>
                   <TableHead>{texts.added}</TableHead>
                   <TableHead className="w-14" />
                 </TableRow>
@@ -136,10 +142,12 @@ export function StaffList() {
                     onClick={() => router.push(`/staff/${member.id}`)}
                   >
                     <TableCell>{member.email}</TableCell>
-                    <TableCell>{roleLabel(member.role, texts)}</TableCell>
                     <TableCell>
-                      {member.trainerId
-                        ? (names.get(member.trainerId) ?? '')
+                      {roleLabel(member.role, texts, specialistName)}
+                    </TableCell>
+                    <TableCell>
+                      {member.resourceId
+                        ? (names.get(member.resourceId) ?? '')
                         : ''}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
@@ -209,9 +217,14 @@ export function StaffList() {
 
 function roleLabel(
   role: StaffMember['role'],
-  texts: { administrator: string; accountant: string; trainer: string },
+  texts: {
+    administrator: string;
+    accountant: string;
+    specialist: string;
+  },
+  specialistName: string,
 ) {
   if (role === 'administrator') return texts.administrator;
-  if (role === 'trainer') return texts.trainer;
+  if (role === 'specialist') return specialistName;
   return texts.accountant;
 }

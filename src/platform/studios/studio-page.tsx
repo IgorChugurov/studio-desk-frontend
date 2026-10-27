@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LoaderCircle } from 'lucide-react';
+import { z } from 'zod';
 import { Button } from '../../shared/ui/button';
 import { notify } from '../../shared/ui/toaster';
 import { getApi } from '../api/api';
@@ -10,42 +11,87 @@ import { useCrumbs } from '../shell/crumbs';
 import { lastListHref } from './list-state';
 import { StudioForm } from './studio-form';
 import { changedBody, createBody, type StudioValues } from './studio-rules';
-import { studioSchema, type Studio } from './studio-types';
+import { organizationSchema, type Organization } from './studio-types';
 import { useStudioActions } from './use-studio-actions';
 
 const FAILED_TEXT = 'Something went wrong. Try again';
 
-function valuesOf(studio: Studio): StudioValues {
+const presetPageSchema = z.object({
+  items: z.array(z.object({ id: z.string(), name: z.string() })),
+  meta: z.object({ totalPages: z.number() }),
+});
+
+function valuesOf(organization: Organization): StudioValues {
   return {
-    name: studio.name,
-    subdomain: studio.subdomain,
-    customDomain: studio.customDomain ?? '',
-    ownerEmail: studio.owner.email,
+    name: organization.name,
+    subdomain: organization.subdomain,
+    customDomain: organization.customDomain ?? '',
+    ownerEmail: organization.owner.email,
+    presetId: organization.preset.id ?? '',
+    presetName: organization.preset.name,
+    sections: organization.sections,
   };
 }
 
+async function loadPresets(): Promise<{ id: string; name: string }[]> {
+  const items: { id: string; name: string }[] = [];
+  let page = 1;
+  let totalPages = 1;
+  while (page <= totalPages && page <= 20) {
+    const body = presetPageSchema.parse(
+      await getApi().request<unknown>(
+        `/presets?currentPage=${page}&perPage=100&sortBy=name`,
+      ),
+    );
+    items.push(...body.items);
+    totalPages = body.meta.totalPages;
+    page += 1;
+  }
+  return items;
+}
+
 /**
- * The page of one studio: a new one (`/studios/new`) or an existing one
- * (`/studios/{id}`). After saving, and on "Back", the administrator returns
- * to the list with the search, filter and page he left.
+ * The page of one organization: a new one (`/organizations/new`) or an existing
+ * one (`/organizations/{id}`). After saving, and on "Back", the administrator
+ * returns to the list with the search, filter and page he left.
  */
 export function StudioPage({ id }: { id?: string }) {
   const router = useRouter();
-  const [studio, setStudio] = useState<Studio | null>(null);
-  const actions = useStudioActions(setStudio);
+  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [presets, setPresets] = useState<{ id: string; name: string }[] | null>(
+    id ? [] : null,
+  );
+  const actions = useStudioActions(setOrganization);
 
   useCrumbs([
-    { label: 'Studios', href: lastListHref() },
-    { label: id ? (studio?.name ?? '…') : 'New studio' },
+    { label: 'Organizations', href: lastListHref() },
+    { label: id ? (organization?.name ?? '…') : 'New organization' },
   ]);
+
+  useEffect(() => {
+    if (id) return;
+    let current = true;
+    loadPresets()
+      .then((items) => {
+        if (current) setPresets(items);
+      })
+      .catch(() => {
+        if (!current) return;
+        notify.error(FAILED_TEXT);
+        setPresets([]);
+      });
+    return () => {
+      current = false;
+    };
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
     let current = true;
     getApi()
-      .request<unknown>(`/studios/${id}`)
+      .request<unknown>(`/organizations/${id}`)
       .then((body) => {
-        if (current) setStudio(studioSchema.parse(body));
+        if (current) setOrganization(organizationSchema.parse(body));
       })
       .catch(() => {
         if (!current) return;
@@ -60,29 +106,29 @@ export function StudioPage({ id }: { id?: string }) {
   const back = () => router.push(lastListHref());
 
   async function create(values: StudioValues) {
-    await getApi().request('/studios', {
+    await getApi().request('/organizations', {
       method: 'POST',
       body: createBody(values),
     });
-    notify.success('Studio created');
+    notify.success('Organization created');
     router.push(lastListHref());
   }
 
   async function update(values: StudioValues) {
-    if (!studio) return;
-    await getApi().request(`/studios/${studio.id}`, {
+    if (!organization) return;
+    await getApi().request(`/organizations/${organization.id}`, {
       method: 'PATCH',
-      body: changedBody(valuesOf(studio), values),
+      body: changedBody(valuesOf(organization), values),
     });
-    notify.success('Studio updated');
+    notify.success('Organization updated');
     router.push(lastListHref());
   }
 
-  if (id && !studio) {
+  if ((id && !organization) || (!id && presets === null)) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center">
         <LoaderCircle
-          aria-label="Loading studio"
+          aria-label="Loading organization"
           className="size-5 animate-spin text-[var(--icons-primary-default)]"
         />
       </div>
@@ -92,17 +138,18 @@ export function StudioPage({ id }: { id?: string }) {
   return (
     <>
       <StudioForm
-        initial={studio ? valuesOf(studio) : undefined}
-        status={studio?.status}
+        initial={organization ? valuesOf(organization) : undefined}
+        status={organization?.status}
+        presets={presets ?? []}
         extraActions={
-          studio && (
+          organization && (
             <>
-              {studio.status === 'active' ? (
+              {organization.status === 'active' ? (
                 <Button
                   type="button"
                   variant="outlined"
                   size="md"
-                  onClick={() => actions.requestDeactivate(studio)}
+                  onClick={() => actions.requestDeactivate(organization)}
                 >
                   Deactivate
                 </Button>
@@ -112,7 +159,7 @@ export function StudioPage({ id }: { id?: string }) {
                   variant="outlined"
                   size="md"
                   loading={actions.pending}
-                  onClick={() => void actions.activate(studio.id)}
+                  onClick={() => void actions.activate(organization.id)}
                 >
                   Activate
                 </Button>
@@ -121,14 +168,14 @@ export function StudioPage({ id }: { id?: string }) {
                 type="button"
                 variant="text"
                 size="md"
-                onClick={() => void actions.loginAs(studio.id)}
+                onClick={() => void actions.loginAs(organization.id)}
               >
-                Log in as studio
+                Log in as organization
               </Button>
             </>
           )
         }
-        onSave={studio ? update : create}
+        onSave={organization ? update : create}
         onBack={back}
       />
       {actions.dialog}

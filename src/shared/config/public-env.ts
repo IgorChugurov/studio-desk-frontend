@@ -18,33 +18,37 @@ export function loadPublicEnv() {
   return {
     apiUrl: NEXT_PUBLIC_API_URL.replace(/\/+$/, ''),
     /**
-     * Studio API, derived from the platform address so one setting switches
-     * both. `http://localhost:3000/api/platform` becomes `…/api/studio`.
+     * Organization API, derived from the platform address so one setting
+     * switches both. `http://localhost:3000/api/platform` becomes
+     * `…/api/organization`.
      */
-    studioApiUrl: studioApiUrl(NEXT_PUBLIC_API_URL),
-    /** Page of the studio admin that receives the handoff code. */
+    studioApiUrl: organizationApiUrl(NEXT_PUBLIC_API_URL),
+    /** Page of the organization admin that receives the handoff code. */
     studioAdminUrl: NEXT_PUBLIC_STUDIO_ADMIN_URL,
   };
 }
 
-/** The studio API lives next to the platform API, under `/api/studio`. */
-export function studioApiUrl(platformApiUrl: string): string {
+/** The organization API lives next to the platform API, under `/api/organization`. */
+export function organizationApiUrl(platformApiUrl: string): string {
   const url = platformApiUrl.replace(/\/+$/, '');
   const suffix = '/api/platform';
   if (!url.endsWith(suffix)) {
     throw new Error(
-      'NEXT_PUBLIC_API_URL must end with /api/platform so the studio API can be derived',
+      'NEXT_PUBLIC_API_URL must end with /api/platform so the organization API can be derived',
     );
   }
-  const studio = `${url.slice(0, -suffix.length)}/api/studio`;
+  const organization = `${url.slice(0, -suffix.length)}/api/organization`;
   // `app.localhost` and `localhost` are different sites. A session cookie set
-  // by localhost is not kept for the studio page, so a reload looks signed
-  // out. Locally the page calls its own address, and Next forwards it.
+  // by localhost is not kept for the organization page, so a reload looks
+  // signed out. Locally the page calls its own address, and Next forwards it.
   if (
-    studio.startsWith('http://localhost') ||
-    studio.startsWith('http://127.0.0.1')
+    organization.startsWith('http://localhost') ||
+    organization.startsWith('http://127.0.0.1')
   ) {
-    return '/api/studio';
+    return '/api/organization';
   }
-  return studio;
+  return organization;
 }
+
+/** @deprecated Use `organizationApiUrl`. */
+export const studioApiUrl = organizationApiUrl;

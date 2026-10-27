@@ -22,7 +22,7 @@ import { StudiosTable } from './studios-table';
 import { useStudioActions } from './use-studio-actions';
 import { useStudiosList } from './use-studios-list';
 
-const CRUMBS = [{ label: 'Studios' }];
+const CRUMBS = [{ label: 'Organizations' }];
 const SEARCH_DELAY_MS = 300;
 const FAILED_TEXT = 'Something went wrong. Try again';
 const STATUS_OPTIONS = [
@@ -39,7 +39,7 @@ function Centered({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The home page: studios in a table with search, a status filter, and
+ * The home page: organizations in a table with search, a status filter, and
  * server-side pagination. What the list shows lives in the address, so the
  * page can be reloaded or shared. The table scrolls inside its own frame.
  */
@@ -105,8 +105,8 @@ export function StudiosList() {
       <div className="flex shrink-0 flex-wrap items-center gap-[var(--space-200)]">
         <div className="flex min-w-0 flex-1 items-center gap-[var(--space-200)]">
           <SearchInput
-            aria-label="Search studios"
-            placeholder="Search studios"
+            aria-label="Search organizations"
+            placeholder="Search organizations"
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
           />
@@ -118,7 +118,7 @@ export function StudiosList() {
           />
         </div>
         <Button asChild variant="cta" size="md" className="w-full sm:w-auto">
-          <Link href="/studios/new">Create studio</Link>
+          <Link href="/organizations/new">Create organization</Link>
         </Button>
       </div>
 
@@ -130,7 +130,7 @@ export function StudiosList() {
               className="size-5 animate-spin text-[var(--icons-primary-default)]"
             />
             <span className="figma-body-s-medium text-[var(--text-gray-secondary)]">
-              Loading studios
+              Loading organizations
             </span>
           </Centered>
         )}
@@ -152,7 +152,7 @@ export function StudiosList() {
               />
             </span>
             <h2 className="figma-body-m-medium text-[var(--text-gray-default)]">
-              No studios found
+              No organizations found
             </h2>
             <p className="figma-body-m-regular max-w-xs text-[var(--text-gray-secondary)]">
               Change the search term or status filter to find what you&apos;re
@@ -175,10 +175,14 @@ export function StudiosList() {
           >
             <StudiosTable
               items={data.items}
-              onOpen={(id) => router.push(`/studios/${id}`)}
+              onOpen={(id) => router.push(`/organizations/${id}`)}
               onDeactivate={actions.requestDeactivate}
-              onActivate={(studio) => void actions.activate(studio.id)}
-              onLoginAs={(studio) => void actions.loginAs(studio.id)}
+              onActivate={(organization) =>
+                void actions.activate(organization.id)
+              }
+              onLoginAs={(organization) =>
+                void actions.loginAs(organization.id)
+              }
             />
           </div>
         )}

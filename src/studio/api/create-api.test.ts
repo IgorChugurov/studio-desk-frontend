@@ -1,7 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApi } from './create-api';
 
-const API = 'http://api.test/api/studio';
+const API = 'http://api.test/api/organization';
+
+const config = {
+  catalogConfig: { resourceTypes: [] },
+  scheduleConfig: {
+    audienceEnabled: true,
+    formatEnabled: true,
+    statuses: ['planned', 'cancelled'],
+  },
+  billingConfig: { settlementMode: 'subscription' as const },
+};
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -39,11 +49,12 @@ afterEach(() => {
 function me(sections = ['schedule', 'staff']) {
   return json({
     user: { email: 'anna@example.com', interfaceLanguage: null },
-    studio: { id: 's1', name: 'Yoga Space' },
+    organization: { id: 's1', name: 'Yoga Space' },
     role: 'owner',
     sections,
+    config,
     impersonated: false,
-    studios: [
+    organizations: [
       { id: 's1', name: 'Yoga Space' },
       { id: 's2', name: 'Dance Hall' },
     ],
@@ -62,7 +73,7 @@ describe('studio sign-in', () => {
         accessToken: 't1',
         accessTokenExpiresIn: 900,
         user: { email: 'anna@example.com' },
-        studio: { id: 's1', name: 'Yoga Space' },
+        organization: { id: 's1', name: 'Yoga Space' },
       });
     });
     await api.initSession();
@@ -70,7 +81,7 @@ describe('studio sign-in', () => {
     expect(result).toBe('signed-in');
     expect(api.session.get()).toMatchObject({
       status: 'signed-in',
-      studioName: 'Yoga Space',
+      organizationName: 'Yoga Space',
     });
     expect(api.selection()).toBeNull();
   });
@@ -83,23 +94,23 @@ describe('studio sign-in', () => {
       if (call.url.endsWith('/me')) return me();
       if (call.url.endsWith('/auth/sign-in')) {
         return json({
-          result: 'studio-selection',
+          result: 'organization-selection',
           selectionTicket: 'ticket',
           selectionTicketExpiresIn: 300,
-          studios: [{ id: 's1', name: 'Yoga Space' }],
+          organizations: [{ id: 's1', name: 'Yoga Space' }],
         });
       }
       return json({
         accessToken: 't2',
         accessTokenExpiresIn: 900,
         user: { email: 'anna@example.com' },
-        studio: { id: 's1', name: 'Yoga Space' },
+        organization: { id: 's1', name: 'Yoga Space' },
       });
     });
     await api.initSession();
     expect(await api.auth.signIn('anna@example.com', '123456')).toBe('select');
     expect(api.session.get().status).toBe('signed-out');
-    await api.auth.selectStudio('s1');
+    await api.auth.selectOrganization('s1');
     expect(api.session.get()).toMatchObject({ status: 'signed-in' });
   });
 
@@ -109,12 +120,12 @@ describe('studio sign-in', () => {
         return json({ statusCode: 401, code: 'UNAUTHORIZED' }, 401);
       }
       if (call.url.endsWith('/me')) return me(['schedule']);
-      if (call.url.endsWith('/auth/switch-studio')) {
+      if (call.url.endsWith('/auth/switch-organization')) {
         return json({
           accessToken: 't3',
           accessTokenExpiresIn: 900,
           user: { email: 'anna@example.com' },
-          studio: { id: 's2', name: 'Dance Hall' },
+          organization: { id: 's2', name: 'Dance Hall' },
         });
       }
       return json({
@@ -122,20 +133,20 @@ describe('studio sign-in', () => {
         accessToken: 't1',
         accessTokenExpiresIn: 900,
         user: { email: 'anna@example.com' },
-        studio: { id: 's1', name: 'Yoga Space' },
+        organization: { id: 's1', name: 'Yoga Space' },
       });
     });
     await api.initSession();
     await api.auth.signIn('anna@example.com', '123456');
-    await api.auth.switchStudio('s2');
+    await api.auth.switchOrganization('s2');
     expect(api.session.get().status).toBe('signed-in');
     const switched = calls.find((call) =>
-      call.url.endsWith('/auth/switch-studio'),
+      call.url.endsWith('/auth/switch-organization'),
     );
     expect(switched?.init.credentials).toBe('include');
     const body = switched?.init.body;
     expect(typeof body === 'string' ? JSON.parse(body) : body).toEqual({
-      studioId: 's2',
+      organizationId: 's2',
     });
   });
 
@@ -147,7 +158,7 @@ describe('studio sign-in', () => {
           accessToken: 't4',
           accessTokenExpiresIn: 900,
           user: { email: 'owner@example.com' },
-          studio: { id: 's1', name: 'Yoga Space' },
+          organization: { id: 's1', name: 'Yoga Space' },
         });
       }
       return json({ statusCode: 401, code: 'UNAUTHORIZED' }, 401);
@@ -180,17 +191,18 @@ describe('studio sign-in', () => {
           accessToken: 'owner-token',
           accessTokenExpiresIn: 900,
           user: { email: 'owner@example.com' },
-          studio: { id: 's1', name: 'Yoga Space' },
+          organization: { id: 's1', name: 'Yoga Space' },
         });
       }
       if (call.url.endsWith('/me')) {
         return json({
           user: { email: 'owner@example.com', interfaceLanguage: null },
-          studio: { id: 's1', name: 'Yoga Space' },
+          organization: { id: 's1', name: 'Yoga Space' },
           role: 'owner',
           sections: ['schedule'],
+          config,
           impersonated: true,
-          studios: [{ id: 's1', name: 'Yoga Space' }],
+          organizations: [{ id: 's1', name: 'Yoga Space' }],
         });
       }
       return json({ statusCode: 401, code: 'UNAUTHORIZED' }, 401);
@@ -207,14 +219,14 @@ describe('studio sign-in', () => {
         accessToken: 'old-token',
         accessTokenExpiresIn: 900,
         user: { email: 'staff@example.com' },
-        studio: { id: 's9', name: 'Old' },
+        organization: { id: 's9', name: 'Old' },
       }),
     );
     await pendingRefresh;
     expect(api.session.get()).toMatchObject({
       status: 'signed-in',
       email: 'owner@example.com',
-      studioId: 's1',
+      organizationId: 's1',
     });
   });
 });

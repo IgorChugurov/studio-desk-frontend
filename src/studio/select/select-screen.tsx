@@ -10,9 +10,9 @@ import { StudioSelect } from './studio-select';
 export function SelectScreen() {
   const session = useSession();
   const router = useRouter();
-  const studios =
+  const organizations =
     session.status === 'signed-out'
-      ? (getApi().selection()?.studios ?? null)
+      ? (getApi().selection()?.organizations ?? null)
       : null;
 
   useEffect(() => {
@@ -21,6 +21,6 @@ export function SelectScreen() {
     else if (!getApi().selection()) router.replace('/sign-in');
   }, [session.status, router]);
 
-  if (!studios) return null;
-  return <StudioSelect studios={studios} />;
+  if (!organizations) return null;
+  return <StudioSelect organizations={organizations} />;
 }

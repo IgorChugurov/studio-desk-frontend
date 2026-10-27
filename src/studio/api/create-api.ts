@@ -8,7 +8,7 @@ import {
   type CodeResponse,
   type Me,
   type SessionBody,
-  type StudioRef,
+  type OrganizationRef,
 } from './auth-types';
 import { languageOf, writeLanguageCookie, type Lang } from '../i18n/language';
 import { createSessionStore } from './session-store';
@@ -30,11 +30,11 @@ export function fileAddress(apiUrl: string, filePath: string): string {
 
 export interface Selection {
   ticket: string;
-  studios: StudioRef[];
+  organizations: OrganizationRef[];
 }
 
 /**
- * The client of the studio API. The access token lives in a variable.
+ * The client of the organization API. The access token lives in a variable.
  * One refresh serves every waiting request.
  */
 export function createApi({ apiUrl, fetchImpl }: ApiOptions) {
@@ -76,11 +76,12 @@ export function createApi({ apiUrl, fetchImpl }: ApiOptions) {
     store.set({
       status: 'signed-in',
       email: me.user.email,
-      studioId: me.studio.id,
-      studioName: me.studio.name,
+      organizationId: me.organization.id,
+      organizationName: me.organization.name,
       language,
       sections: me.sections,
-      studios: me.studios,
+      organizations: me.organizations,
+      config: me.config,
     });
   }
 
@@ -210,7 +211,7 @@ export function createApi({ apiUrl, fetchImpl }: ApiOptions) {
         return authCall('/auth/code', jsonPost({ email }), codeResponseSchema);
       },
 
-      /** `signed-in` opens the studio. `select` opens the studio list. */
+      /** `signed-in` opens the organization. `select` opens the organization list. */
       async signIn(
         email: string,
         code: string,
@@ -224,19 +225,22 @@ export function createApi({ apiUrl, fetchImpl }: ApiOptions) {
           await startSession(body);
           return 'signed-in';
         }
-        selection = { ticket: body.selectionTicket, studios: body.studios };
+        selection = {
+          ticket: body.selectionTicket,
+          organizations: body.organizations,
+        };
         store.set({ status: 'signed-out' });
         return 'select';
       },
 
-      async selectStudio(studioId: string): Promise<void> {
+      async selectOrganization(organizationId: string): Promise<void> {
         const ticket = selection?.ticket;
         if (!ticket) throw new ApiError(400, 'INVALID_SELECTION_TICKET');
         try {
           await startSession(
             await authCall(
-              '/auth/select-studio',
-              jsonPost({ selectionTicket: ticket, studioId }),
+              '/auth/select-organization',
+              jsonPost({ selectionTicket: ticket, organizationId }),
               sessionBodySchema,
             ),
           );
@@ -271,8 +275,8 @@ export function createApi({ apiUrl, fetchImpl }: ApiOptions) {
         return job;
       },
 
-      async switchStudio(studioId: string): Promise<void> {
-        const response = await send('/auth/switch-studio', {
+      async switchOrganization(organizationId: string): Promise<void> {
+        const response = await send('/auth/switch-organization', {
           method: 'POST',
           credentials: 'include',
           headers: {
@@ -280,7 +284,7 @@ export function createApi({ apiUrl, fetchImpl }: ApiOptions) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({ studioId }),
+          body: JSON.stringify({ organizationId }),
         });
         if (!response.ok) throw await toApiError(response);
         await startSession(sessionBodySchema.parse(await response.json()));

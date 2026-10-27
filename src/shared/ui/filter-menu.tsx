@@ -24,18 +24,23 @@ export function FilterMenu<T extends string>({
   options,
   value,
   onChange,
+  showLabel = false,
 }: {
   label: string;
   options: FilterOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  /** Keep the word visible on a narrow screen. */
+  showLabel?: boolean;
 }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outlined" size="md" aria-label={label}>
           <SlidersHorizontal aria-hidden />
-          <span className="hidden sm:inline">{label}</span>
+          <span className={showLabel ? 'inline' : 'hidden sm:inline'}>
+            {label}
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[160px]">

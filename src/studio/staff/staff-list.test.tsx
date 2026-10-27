@@ -11,7 +11,25 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('../api/session-provider', () => ({
-  useSession: () => ({ status: 'signed-in', language: 'en' }),
+  useSession: () => ({
+    status: 'signed-in',
+    language: 'en',
+    config: {
+      catalogConfig: {
+        resourceTypes: [
+          {
+            id: 'rt-trainer',
+            person: true,
+            labels: {
+              en: { singular: 'Trainer', plural: 'Trainers' },
+              sk: { singular: 'Tréner', plural: 'Tréneri' },
+              uk: { singular: 'Тренер', plural: 'Тренери' },
+            },
+          },
+        ],
+      },
+    },
+  }),
 }));
 
 vi.mock('../api/api', () => ({
@@ -30,7 +48,7 @@ describe('Staff list trainer column', () => {
 
   it('shows the linked trainer name and leaves other roles empty', async () => {
     request.mockImplementation((path: string) => {
-      if (String(path).startsWith('/trainers')) {
+      if (String(path).startsWith('/resources')) {
         return Promise.resolve({
           items: [{ id: 'anna', name: 'Anna' }],
           meta: { totalPages: 1 },
@@ -41,15 +59,15 @@ describe('Staff list trainer column', () => {
           {
             id: 'one',
             email: 'anna@example.com',
-            role: 'trainer',
-            trainerId: 'anna',
+            role: 'specialist',
+            resourceId: 'anna',
             createdAt: '2026-10-16T10:00:00Z',
           },
           {
             id: 'two',
             email: 'olga@example.com',
             role: 'administrator',
-            trainerId: null,
+            resourceId: null,
             createdAt: '2026-10-16T11:00:00Z',
           },
         ],

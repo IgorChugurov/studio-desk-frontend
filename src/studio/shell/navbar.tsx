@@ -40,8 +40,8 @@ export function Navbar({
     await getApi().auth.setLanguage(language);
   }
 
-  async function chooseStudio(studioId: string) {
-    await getApi().auth.switchStudio(studioId);
+  async function chooseOrganization(organizationId: string) {
+    await getApi().auth.switchOrganization(organizationId);
     setSwitching(false);
     const next = getApi().session.get();
     if (next.status === 'signed-in') {
@@ -53,7 +53,7 @@ export function Navbar({
     <header className="flex h-11 shrink-0 items-center justify-between gap-[var(--space-400)] bg-[var(--primary-light-800)] px-4 sm:px-6">
       <Breadcrumbs
         items={[
-          { label: session.studioName, href: home, hideOnMobile: true },
+          { label: session.organizationName, href: home, hideOnMobile: true },
           ...trail,
         ]}
       />
@@ -78,7 +78,7 @@ export function Navbar({
               {choice.label}
             </DropdownMenuItem>
           ))}
-          {session.studios.length > 1 && (
+          {session.organizations.length > 1 && (
             <DropdownMenuItem onSelect={() => setSwitching(true)}>
               {texts.switchStudio}
             </DropdownMenuItem>
@@ -96,17 +96,17 @@ export function Navbar({
         actions={null}
       >
         <ul className="flex flex-col gap-[var(--space-200)]">
-          {session.studios.map((studio) => (
-            <li key={studio.id}>
+          {session.organizations.map((organization) => (
+            <li key={organization.id}>
               <Button
                 type="button"
                 variant="outlined"
                 size="lg"
                 className="w-full"
-                disabled={studio.id === session.studioId}
-                onClick={() => void chooseStudio(studio.id)}
+                disabled={organization.id === session.organizationId}
+                onClick={() => void chooseOrganization(organization.id)}
               >
-                {studio.name}
+                {organization.name}
               </Button>
             </li>
           ))}
@@ -118,7 +118,7 @@ export function Navbar({
 
 export function crumbFor(section: SectionId, language: Lang): string {
   const texts = copy(language);
-  if (section === 'studio-settings') return texts.studioSettings;
+  if (section === 'organization-settings') return texts.studioSettings;
   if (section === 'clients') return texts.clients;
   if (section === 'accounting') return texts.accounting;
   return texts[section];

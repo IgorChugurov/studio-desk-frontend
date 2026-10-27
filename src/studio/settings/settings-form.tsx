@@ -2,23 +2,49 @@
 
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
+import { ResourceTypeCards } from '../../shared/config-editor/resource-type-cards';
+import { ScheduleBillingFields } from '../../shared/config-editor/schedule-billing';
+import { CONFIG_EDITOR_TEXTS } from '../../shared/config-editor/texts';
+import {
+  addedDraft,
+  labelsComplete,
+  lockResourceType,
+  nextResourceKey,
+  withLockedStatuses,
+  type BillingDraft,
+  type ResourceTypeDraft,
+  type ScheduleDraft,
+} from '../../shared/organization-config';
 import { Button } from '../../shared/ui/button';
 import { Field } from '../../shared/ui/field';
 import { Select } from '../../shared/ui/select';
 import { notify } from '../../shared/ui/toaster';
-import { ApiError } from '../api/api-error';
 import { getApi } from '../api/api';
+import { organizationConfigSchema } from '../api/auth-types';
 import { useSession } from '../api/session-provider';
 import { copy, LANGUAGE_CHOICES, type Lang } from '../i18n/language';
 import { useCrumbs } from '../shell/crumbs';
 
-const settingsSchema = z.object({
-  language: z.enum(['en', 'sk', 'uk']),
-  country: z.string(),
-  currency: z.string(),
-  timeZone: z.string(),
-});
+const settingsSchema = z
+  .object({
+    language: z.enum(['en', 'sk', 'uk']),
+    country: z.string(),
+    currency: z.string(),
+    timeZone: z.string(),
+  })
+  .and(organizationConfigSchema);
+
 type Settings = z.infer<typeof settingsSchema>;
+
+interface Draft {
+  language: Settings['language'];
+  country: string;
+  currency: string;
+  timeZone: string;
+  schedule: ScheduleDraft;
+  billing: BillingDraft;
+  resourceTypes: ResourceTypeDraft[];
+}
 
 const optionsSchema = z.object({
   countries: z.array(z.string()),
@@ -47,7 +73,55 @@ function currencyLabel(code: string, language: Lang): string {
   return name ? `${name} (${code})` : code;
 }
 
-/** Studio settings: four selects. Save sends only what changed. */
+function draftOf(settings: Settings): Draft {
+  return {
+    language: settings.language,
+    country: settings.country,
+    currency: settings.currency,
+    timeZone: settings.timeZone,
+    schedule: {
+      ...settings.scheduleConfig,
+      statuses: withLockedStatuses(settings.scheduleConfig.statuses),
+    },
+    billing: settings.billingConfig,
+    resourceTypes: settings.catalogConfig.resourceTypes.map((type) =>
+      lockResourceType({ ...type, clientId: type.id }),
+    ),
+  };
+}
+
+function catalogBody(types: ResourceTypeDraft[]) {
+  return {
+    resourceTypes: types.map((type) => ({
+      ...(type.id ? { id: type.id } : {}),
+      role: type.role,
+      labels: {
+        en: {
+          singular: type.labels.en.singular.trim(),
+          plural: type.labels.en.plural.trim(),
+        },
+        sk: {
+          singular: type.labels.sk.singular.trim(),
+          plural: type.labels.sk.plural.trim(),
+        },
+        uk: {
+          singular: type.labels.uk.singular.trim(),
+          plural: type.labels.uk.plural.trim(),
+        },
+      },
+      geography: type.geography,
+      duration: type.duration,
+      showcase: type.showcase,
+      person: type.person,
+      skills: type.skills,
+      required: type.required,
+      multiple: type.multiple,
+      conflictMode: type.conflictMode,
+    })),
+  };
+}
+
+/** Organization settings: base fields and the copied modular configuration. */
 export function SettingsForm() {
   const session = useSession();
   const language: Lang =
@@ -55,12 +129,13 @@ export function SettingsForm() {
   const texts = copy(language);
   useCrumbs([{ label: texts.studioSettings }]);
 
-  const [loaded, setLoaded] = useState<Settings | null>(null);
-  const [values, setValues] = useState<Settings | null>(null);
+  const [loaded, setLoaded] = useState<Draft | null>(null);
+  const [values, setValues] = useState<Draft | null>(null);
   const [options, setOptions] = useState<z.infer<typeof optionsSchema> | null>(
     null,
   );
   const [pending, setPending] = useState(false);
+  const [labelError, setLabelError] = useState<string | null>(null);
 
   useEffect(() => {
     let gone = false;
@@ -71,7 +146,7 @@ export function SettingsForm() {
           getApi().request<unknown>('/settings/options'),
         ]);
         if (gone) return;
-        const next = settingsSchema.parse(settings);
+        const next = draftOf(settingsSchema.parse(settings));
         setLoaded(next);
         setValues(next);
         setOptions(optionsSchema.parse(lists));
@@ -86,30 +161,64 @@ export function SettingsForm() {
 
   if (!values || !loaded || !options) return null;
 
+  const catalog = catalogBody(values.resourceTypes);
+  const loadedCatalog = catalogBody(loaded.resourceTypes);
+  const schedule = {
+    ...values.schedule,
+    statuses: withLockedStatuses(values.schedule.statuses),
+  };
   const changed =
     values.language !== loaded.language ||
     values.country !== loaded.country ||
     values.currency !== loaded.currency ||
-    values.timeZone !== loaded.timeZone;
+    values.timeZone !== loaded.timeZone ||
+    JSON.stringify(schedule) !== JSON.stringify(loaded.schedule) ||
+    JSON.stringify(values.billing) !== JSON.stringify(loaded.billing) ||
+    JSON.stringify(catalog) !== JSON.stringify(loadedCatalog);
 
   async function save() {
     if (!values || !loaded || pending || !changed) return;
-    const body: Partial<Settings> = {};
+    if (!labelsComplete(values.resourceTypes)) {
+      setLabelError(CONFIG_EDITOR_TEXTS.enterAllLabels);
+      return;
+    }
+    const body: Record<string, unknown> = {};
     if (values.language !== loaded.language) body.language = values.language;
     if (values.country !== loaded.country) body.country = values.country;
     if (values.currency !== loaded.currency) body.currency = values.currency;
     if (values.timeZone !== loaded.timeZone) body.timeZone = values.timeZone;
+    if (JSON.stringify(schedule) !== JSON.stringify(loaded.schedule)) {
+      body.scheduleConfig = schedule;
+    }
+    if (JSON.stringify(values.billing) !== JSON.stringify(loaded.billing)) {
+      body.billingConfig = values.billing;
+    }
+    if (JSON.stringify(catalog) !== JSON.stringify(loadedCatalog)) {
+      body.catalogConfig = catalog;
+    }
     setPending(true);
     try {
-      const saved = settingsSchema.parse(
+      const parsed = settingsSchema.parse(
         await getApi().request('/settings', { method: 'PATCH', body }),
       );
+      const saved = draftOf(parsed);
       setLoaded(saved);
       setValues(saved);
+      setLabelError(null);
+      const current = getApi().session.get();
+      if (current.status === 'signed-in') {
+        getApi().session.set({
+          ...current,
+          config: {
+            catalogConfig: parsed.catalogConfig,
+            scheduleConfig: parsed.scheduleConfig,
+            billingConfig: parsed.billingConfig,
+          },
+        });
+      }
       notify.success(texts.settingsSaved);
-    } catch (error) {
-      if (!(error instanceof ApiError)) notify.error(texts.somethingWentWrong);
-      else notify.error(texts.somethingWentWrong);
+    } catch {
+      notify.error(texts.somethingWentWrong);
     } finally {
       setPending(false);
     }
@@ -134,56 +243,86 @@ export function SettingsForm() {
           {texts.save}
         </Button>
       </div>
-      <div className="flex max-w-xl flex-col gap-[var(--space-400)]">
-        <Field id="language" label={texts.language} required>
-          <Select
-            id="language"
-            value={values.language}
-            onValueChange={(language) =>
-              setValues({
-                ...values,
-                language: language as Settings['language'],
-              })
-            }
-            options={LANGUAGE_CHOICES.map((item) => ({
-              value: item.id,
-              label: item.label,
-            }))}
-          />
-        </Field>
-        <Field id="country" label={texts.country} required>
-          <Select
-            id="country"
-            value={values.country}
-            onValueChange={(country) => setValues({ ...values, country })}
-            options={options.countries.map((code) => ({
-              value: code,
-              label: countryLabel(code, language),
-            }))}
-          />
-        </Field>
-        <Field id="currency" label={texts.currency} required>
-          <Select
-            id="currency"
-            value={values.currency}
-            onValueChange={(currency) => setValues({ ...values, currency })}
-            options={options.currencies.map((code) => ({
-              value: code,
-              label: currencyLabel(code, language),
-            }))}
-          />
-        </Field>
-        <Field id="timeZone" label={texts.timeZone} required>
-          <Select
-            id="timeZone"
-            value={values.timeZone}
-            onValueChange={(timeZone) => setValues({ ...values, timeZone })}
-            options={options.timeZones.map((zone) => ({
-              value: zone,
-              label: zone,
-            }))}
-          />
-        </Field>
+      <div className="flex max-w-3xl flex-col gap-[var(--space-600)]">
+        <div className="flex max-w-xl flex-col gap-[var(--space-400)]">
+          <Field id="language" label={texts.language} required>
+            <Select
+              id="language"
+              value={values.language}
+              onValueChange={(next) =>
+                setValues({
+                  ...values,
+                  language: next as Settings['language'],
+                })
+              }
+              options={LANGUAGE_CHOICES.map((item) => ({
+                value: item.id,
+                label: item.label,
+              }))}
+            />
+          </Field>
+          <Field id="country" label={texts.country} required>
+            <Select
+              id="country"
+              value={values.country}
+              onValueChange={(country) => setValues({ ...values, country })}
+              options={options.countries.map((code) => ({
+                value: code,
+                label: countryLabel(code, language),
+              }))}
+            />
+          </Field>
+          <Field id="currency" label={texts.currency} required>
+            <Select
+              id="currency"
+              value={values.currency}
+              onValueChange={(currency) => setValues({ ...values, currency })}
+              options={options.currencies.map((code) => ({
+                value: code,
+                label: currencyLabel(code, language),
+              }))}
+            />
+          </Field>
+          <Field id="timeZone" label={texts.timeZone} required>
+            <Select
+              id="timeZone"
+              value={values.timeZone}
+              onValueChange={(timeZone) => setValues({ ...values, timeZone })}
+              options={options.timeZones.map((zone) => ({
+                value: zone,
+                label: zone,
+              }))}
+            />
+          </Field>
+        </div>
+        <ScheduleBillingFields
+          schedule={values.schedule}
+          billing={values.billing}
+          texts={CONFIG_EDITOR_TEXTS}
+          onSchedule={(next) => setValues({ ...values, schedule: next })}
+          onBilling={(billing) => setValues({ ...values, billing })}
+        />
+        <ResourceTypeCards
+          types={values.resourceTypes}
+          texts={CONFIG_EDITOR_TEXTS}
+          labelError={labelError}
+          onChange={(resourceTypes) => {
+            setLabelError(null);
+            setValues({ ...values, resourceTypes });
+          }}
+          onAdd={() => {
+            const taken = values.resourceTypes.flatMap((type) =>
+              type.key ? [type.key] : [],
+            );
+            setValues({
+              ...values,
+              resourceTypes: [
+                ...values.resourceTypes,
+                addedDraft('resource', nextResourceKey('resource', taken)),
+              ],
+            });
+          }}
+        />
       </div>
     </form>
   );

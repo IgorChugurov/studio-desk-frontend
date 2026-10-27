@@ -25,8 +25,8 @@ const nextConfig: NextConfig = {
     if (!origin) return [];
     return [
       {
-        source: '/api/studio/:path*',
-        destination: `${origin}/api/studio/:path*`,
+        source: '/api/organization/:path*',
+        destination: `${origin}/api/organization/:path*`,
       },
       {
         source: '/files/:path*',

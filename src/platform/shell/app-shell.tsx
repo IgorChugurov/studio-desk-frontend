@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { getApi } from '../api/api';
 import { useSession } from '../api/session-provider';
+import { Tabs } from '../../shared/ui/tabs';
 import { CrumbsProvider } from './crumbs';
 import { Navbar } from './navbar';
 
@@ -30,8 +31,26 @@ export function AppShell({ children }: { children: ReactNode }) {
           email={session.email}
           onSignOut={() => void getApi().auth.signOut()}
         />
+        <PlatformTabs />
         <main className="flex min-h-0 flex-1 flex-col">{children}</main>
       </div>
     </CrumbsProvider>
+  );
+}
+
+/** Organizations and Presets, under the navbar. */
+function PlatformTabs() {
+  const pathname = usePathname().replace(/^\/platform(?=\/|$)/, '') || '/';
+  const current = pathname.startsWith('/presets') ? '/presets' : '/';
+  return (
+    <div className="px-[var(--space-400)] pt-[var(--space-300)]">
+      <Tabs
+        current={current}
+        items={[
+          { href: '/', label: 'Organizations' },
+          { href: '/presets', label: 'Presets' },
+        ]}
+      />
+    </div>
   );
 }

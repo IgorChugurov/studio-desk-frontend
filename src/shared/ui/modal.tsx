@@ -29,6 +29,15 @@ export function Modal({
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
+          onPointerDownOutside={(event) => {
+            const target = event.target;
+            if (
+              target instanceof Element &&
+              target.closest('[data-radix-popper-content-wrapper]')
+            ) {
+              event.preventDefault();
+            }
+          }}
           className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-[480px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[var(--radius-400)] bg-[var(--background-gray-default)] shadow-[0px_7px_16px_0px_rgba(52,46,72,0.1),0px_29px_29px_0px_rgba(52,46,72,0.09),0px_66px_40px_0px_rgba(52,46,72,0.05)] outline-none"
         >
           <div className="relative border-b border-[var(--border-gray-default)] bg-[var(--background-gray-secondary)] px-[var(--space-600)] py-[var(--space-300)] pr-14">

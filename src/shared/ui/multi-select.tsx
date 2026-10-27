@@ -34,6 +34,7 @@ export function MultiSelect({
   searchPlaceholder,
   emptyText,
   allSelectedText,
+  inline = false,
 }: {
   id?: string;
   value: string[];
@@ -45,6 +46,8 @@ export function MultiSelect({
   searchPlaceholder: string;
   emptyText: string;
   allSelectedText: string;
+  /** Draw the list in the page, so a click reaches it inside a modal. */
+  inline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const selected = value.flatMap((id) => {
@@ -88,55 +91,134 @@ export function MultiSelect({
           ))}
         </div>
       )}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
+      {inline && (
+        <>
+          <FieldButton
             id={id}
-            type="button"
             disabled={disabled || nothingLeft}
-            data-invalid={invalid ? true : undefined}
-            data-state={open ? 'open' : 'closed'}
-            className={cn(
-              'flex h-10 w-full items-center justify-between rounded-[var(--radius-200)] border border-solid bg-[var(--background-gray-secondary)] px-[var(--space-300)]',
-              'font-[family-name:var(--body-font-family)] text-[length:var(--body-sizeM)] text-[var(--text-gray-secondary)]',
-              'focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
-              invalid
-                ? 'border-[var(--border-error-default)]'
-                : 'border-[var(--border-gray-default)]',
-            )}
-          >
-            <span className="overflow-hidden text-ellipsis whitespace-nowrap">
-              {nothingLeft ? allSelectedText : placeholder}
-            </span>
-            <ChevronDown
-              aria-hidden
-              className="size-4 shrink-0 text-[var(--icons-gray-default)]"
+            invalid={invalid}
+            open={open}
+            label={nothingLeft ? allSelectedText : placeholder}
+            onClick={() => setOpen((current) => !current)}
+          />
+          {open && (
+            <OptionList
+              available={available}
+              searchPlaceholder={searchPlaceholder}
+              emptyText={emptyText}
+              onAdd={add}
             />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-[var(--radius-200)] border border-solid border-[var(--border-gray-default)] bg-[var(--background-gray-default)] shadow-[0px_2px_8px_0px_rgba(171,166,194,0.3)]"
-        >
-          <Command>
-            <CommandInput placeholder={searchPlaceholder} />
-            <CommandList>
-              <CommandEmpty>{emptyText}</CommandEmpty>
-              <CommandGroup>
-                {available.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    value={`${option.label} ${option.value}`}
-                    onSelect={() => add(option.value)}
-                  >
-                    {option.label}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+          )}
+        </>
+      )}
+      {!inline && (
+        <Popover modal open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <FieldButton
+              id={id}
+              disabled={disabled || nothingLeft}
+              invalid={invalid}
+              open={open}
+              label={nothingLeft ? allSelectedText : placeholder}
+            />
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="pointer-events-auto z-[80] w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-[var(--radius-200)] border border-solid border-[var(--border-gray-default)] bg-[var(--background-gray-default)] shadow-[0px_2px_8px_0px_rgba(171,166,194,0.3)]"
+            onOpenAutoFocus={(event) => event.preventDefault()}
+            onCloseAutoFocus={(event) => event.preventDefault()}
+          >
+            <OptionList
+              available={available}
+              searchPlaceholder={searchPlaceholder}
+              emptyText={emptyText}
+              onAdd={add}
+            />
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  );
+}
+
+function FieldButton({
+  id,
+  disabled,
+  invalid,
+  open,
+  label,
+  onClick,
+}: {
+  id?: string;
+  disabled?: boolean;
+  invalid?: boolean;
+  open: boolean;
+  label: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      id={id}
+      type="button"
+      disabled={disabled}
+      data-invalid={invalid ? true : undefined}
+      data-state={open ? 'open' : 'closed'}
+      className={cn(
+        'flex h-10 w-full items-center justify-between rounded-[var(--radius-200)] border border-solid bg-[var(--background-gray-secondary)] px-[var(--space-300)]',
+        'font-[family-name:var(--body-font-family)] text-[length:var(--body-sizeM)] text-[var(--text-gray-secondary)]',
+        'focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+        invalid
+          ? 'border-[var(--border-error-default)]'
+          : 'border-[var(--border-gray-default)]',
+      )}
+      onClick={onClick}
+    >
+      <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+        {label}
+      </span>
+      <ChevronDown
+        aria-hidden
+        className="size-4 shrink-0 text-[var(--icons-gray-default)]"
+      />
+    </button>
+  );
+}
+
+function OptionList({
+  available,
+  searchPlaceholder,
+  emptyText,
+  onAdd,
+}: {
+  available: MultiSelectOption[];
+  searchPlaceholder: string;
+  emptyText: string;
+  onAdd: (id: string) => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-[var(--radius-200)] border border-solid border-[var(--border-gray-default)] bg-[var(--background-gray-default)]">
+      <Command>
+        <CommandInput placeholder={searchPlaceholder} />
+        <CommandList>
+          <CommandEmpty>{emptyText}</CommandEmpty>
+          <CommandGroup>
+            {available.map((option) => (
+              <CommandItem
+                key={option.value}
+                value={`${option.label} ${option.value}`}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onAdd(option.value);
+                }}
+                onSelect={() => onAdd(option.value)}
+              >
+                {option.label}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </Command>
     </div>
   );
 }

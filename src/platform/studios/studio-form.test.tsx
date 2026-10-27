@@ -22,7 +22,12 @@ const loaded: StudioValues = {
   subdomain: 'yoga-space',
   customDomain: '',
   ownerEmail: 'owner@example.com',
+  presetId: 'p1',
+  presetName: 'Fitness Studio',
+  sections: ['schedule'],
 };
+
+const PRESETS = [{ id: 'p1', name: 'Fitness Studio' }];
 
 const field = (label: RegExp) => screen.getByLabelText(label);
 const type = (label: RegExp, value: string) =>
@@ -30,7 +35,7 @@ const type = (label: RegExp, value: string) =>
 
 function renderCreate(onSave = vi.fn().mockResolvedValue(undefined)) {
   const onBack = vi.fn();
-  render(<StudioForm onSave={onSave} onBack={onBack} />);
+  render(<StudioForm presets={PRESETS} onSave={onSave} onBack={onBack} />);
   return { onSave, onBack };
 }
 
@@ -118,6 +123,17 @@ describe('StudioForm: new studio', () => {
       subdomain: 'yoga-space',
       customDomain: '',
       ownerEmail: 'owner@example.com',
+      presetId: 'p1',
+      presetName: 'Fitness Studio',
+      sections: [
+        'schedule',
+        'catalogs',
+        'clients',
+        'subscriptions',
+        'accounting',
+        'organization-settings',
+        'staff',
+      ],
     });
     expect(screen.queryByText('Confirm changes')).toBeNull();
   });
@@ -148,7 +164,7 @@ describe('StudioForm: server errors', () => {
   it('DOMAIN_TAKEN shows at the custom domain', async () => {
     await saveWith(new ApiError(409, 'DOMAIN_TAKEN'));
     expect(
-      screen.getByText('This domain is already used by another studio'),
+      screen.getByText('This domain is already used by another organization'),
     ).toBeTruthy();
   });
 
@@ -207,11 +223,13 @@ describe('StudioForm: editing', () => {
     expect(screen.getByText('Confirm changes')).toBeTruthy();
     expect(
       screen.getByText(
-        'These changes affect access to the studio and may break existing links or sessions',
+        'These changes affect access to the organization and may break existing links or sessions',
       ),
     ).toBeTruthy();
     expect(
-      screen.getByText('The old address will stop opening the studio site'),
+      screen.getByText(
+        'The old address will stop opening the organization site',
+      ),
     ).toBeTruthy();
     expect(screen.queryByText(/will lose access immediately/)).toBeNull();
     expect(onSave).not.toHaveBeenCalled();

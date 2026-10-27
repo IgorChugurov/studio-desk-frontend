@@ -46,6 +46,7 @@ const studio = {
   subdomain: 'northline',
   customDomain: null,
   owner: { email: 'maya@example.com' },
+  preset: { id: 'p1', name: 'Fitness Studio' },
   status: 'active',
   createdAt: '2026-09-30T10:00:00Z',
 };
@@ -91,7 +92,7 @@ describe('StudiosList', () => {
     request.mockResolvedValue(page([studio]));
     await renderList();
     expect(request).toHaveBeenCalledWith(
-      '/studios?status=active&currentPage=1&perPage=15',
+      '/organizations?status=active&currentPage=1&perPage=15',
     );
     expect(screen.getByText('Northline Portraits')).toBeTruthy();
     expect(screen.getByText('maya@example.com')).toBeTruthy();
@@ -104,7 +105,7 @@ describe('StudiosList', () => {
     request.mockResolvedValue(page([studio]));
     await renderList();
     expect(request).toHaveBeenCalledWith(
-      '/studios?status=deactivated&currentPage=2&perPage=30&search=yoga',
+      '/organizations?status=deactivated&currentPage=2&perPage=30&search=yoga',
     );
   });
 
@@ -112,7 +113,7 @@ describe('StudiosList', () => {
     location.search = 'search=zzz';
     request.mockResolvedValue(page([]));
     await renderList();
-    expect(screen.getByText('No studios found')).toBeTruthy();
+    expect(screen.getByText('No organizations found')).toBeTruthy();
     fireEvent.click(
       screen.getByRole('button', { name: 'Reset search and filters' }),
     );
@@ -132,15 +133,17 @@ describe('StudiosList', () => {
     request.mockResolvedValue(page([studio]));
     await renderList();
     fireEvent.click(screen.getByText('maya@example.com'));
-    expect(router.push).toHaveBeenCalledWith('/studios/s1');
+    expect(router.push).toHaveBeenCalledWith('/organizations/s1');
   });
 
   it('Create studio leads to the new studio page', async () => {
     request.mockResolvedValue(page([studio]));
     await renderList();
     expect(
-      screen.getByRole('link', { name: 'Create studio' }).getAttribute('href'),
-    ).toBe('/studios/new');
+      screen
+        .getByRole('link', { name: 'Create organization' })
+        .getAttribute('href'),
+    ).toBe('/organizations/new');
   });
 
   it('goes to the next page and keeps it in the address', async () => {
@@ -157,7 +160,7 @@ describe('StudiosList', () => {
     request.mockResolvedValue(page([studio]));
     await renderList();
     vi.useFakeTimers();
-    fireEvent.change(screen.getByLabelText('Search studios'), {
+    fireEvent.change(screen.getByLabelText('Search organizations'), {
       target: { value: 'yoga' },
     });
     expect(router.replace).not.toHaveBeenCalled();
@@ -182,7 +185,7 @@ describe('StudiosList: row menu', () => {
     expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeTruthy();
     expect(screen.getByRole('menuitem', { name: 'Deactivate' })).toBeTruthy();
     expect(
-      screen.getByRole('menuitem', { name: 'Log in as studio' }),
+      screen.getByRole('menuitem', { name: 'Log in as organization' }),
     ).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: 'Activate' })).toBeNull();
   });
@@ -201,6 +204,7 @@ describe('StudiosList: row menu', () => {
       .mockResolvedValueOnce(page([{ ...studio, status: 'deactivated' }]))
       .mockResolvedValueOnce({
         ...studio,
+        sections: ['schedule'],
         status: 'active',
         updatedAt: '2026-10-03T10:00:00Z',
       })
@@ -210,13 +214,13 @@ describe('StudiosList: row menu', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('menuitem', { name: 'Activate' }));
     });
-    expect(await screen.findByText('No studios found')).toBeTruthy();
-    expect(request).toHaveBeenNthCalledWith(2, '/studios/s1/activate', {
+    expect(await screen.findByText('No organizations found')).toBeTruthy();
+    expect(request).toHaveBeenNthCalledWith(2, '/organizations/s1/activate', {
       method: 'POST',
     });
     expect(request).toHaveBeenNthCalledWith(
       3,
-      '/studios?status=deactivated&currentPage=1&perPage=15',
+      '/organizations?status=deactivated&currentPage=1&perPage=15',
     );
   });
 
@@ -227,7 +231,7 @@ describe('StudiosList: row menu', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('menuitem', { name: 'Deactivate' }));
     });
-    expect(screen.getByText('Deactivate studio?')).toBeTruthy();
+    expect(screen.getByText('Deactivate organization?')).toBeTruthy();
     expect(request).toHaveBeenCalledTimes(1);
   });
 });

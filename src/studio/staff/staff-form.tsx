@@ -10,9 +10,9 @@ import { Select } from '../../shared/ui/select';
 import { notify } from '../../shared/ui/toaster';
 import { ApiError } from '../api/api-error';
 import { getApi } from '../api/api';
+import type { OrganizationConfig } from '../api/auth-types';
 import { useSession } from '../api/session-provider';
-import { loadNamedRecords } from '../catalogs/catalog-options';
-import { copy } from '../i18n/language';
+import { copy, type Lang } from '../i18n/language';
 import { useCrumbs } from '../shell/crumbs';
 import { RemoveStaffDialog } from './remove-staff-dialog';
 import {
@@ -23,27 +23,63 @@ import {
 
 const emailSchema = z.email();
 
-/** Add a staff member, or change the role and trainer link of an existing one. */
+const resourcePageSchema = z.object({
+  items: z.array(z.object({ id: z.string(), name: z.string() })),
+  meta: z.object({ totalPages: z.number() }),
+});
+
+type PersonType = OrganizationConfig['catalogConfig']['resourceTypes'][number];
+
+export function personTypes(
+  config: OrganizationConfig | undefined,
+): PersonType[] {
+  return (config?.catalogConfig.resourceTypes ?? []).filter(
+    (type) => type.person,
+  );
+}
+
+export function personLabel(
+  types: PersonType[],
+  language: Lang,
+  fallback: string,
+): string {
+  if (types.length === 1) {
+    const label = types[0]?.labels[language].singular.trim();
+    if (label) return label;
+  }
+  return fallback;
+}
+
+/** Add a staff member, or change the role and specialist link of an existing one. */
 export function StaffForm({ memberId }: { memberId?: string }) {
   const session = useSession();
-  const texts = copy(session.status === 'signed-in' ? session.language : 'en');
+  const language: Lang =
+    session.status === 'signed-in' ? session.language : 'en';
+  const texts = copy(language);
+  const people = personTypes(
+    session.status === 'signed-in' ? session.config : undefined,
+  );
+  const specialistName = personLabel(people, language, texts.specialist);
   const router = useRouter();
   const editing = memberId !== undefined;
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<StaffMember['role']>('administrator');
-  const [trainerId, setTrainerId] = useState<string | null>(null);
+  const [resourceId, setResourceId] = useState<string | null>(null);
   const [loadedRole, setLoadedRole] = useState<StaffMember['role'] | null>(
     null,
   );
-  const [loadedTrainerId, setLoadedTrainerId] = useState<string | null>(null);
-  const [trainers, setTrainers] = useState<{ id: string; name: string }[]>([]);
+  const [loadedResourceId, setLoadedResourceId] = useState<string | null>(null);
+  const [resources, setResources] = useState<{ id: string; name: string }[]>(
+    [],
+  );
   const [linkedIds, setLinkedIds] = useState<string[]>([]);
   const [listsReady, setListsReady] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
-  const [trainerError, setTrainerError] = useState<string | null>(null);
+  const [resourceError, setResourceError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const typeKey = people.map((type) => type.id).join(',');
 
   useCrumbs(
     editing
@@ -61,9 +97,9 @@ export function StaffForm({ memberId }: { memberId?: string }) {
         const member = staffMemberSchema.parse(body);
         setEmail(member.email);
         setRole(member.role);
-        setTrainerId(member.trainerId);
+        setResourceId(member.resourceId);
         setLoadedRole(member.role);
-        setLoadedTrainerId(member.trainerId);
+        setLoadedResourceId(member.resourceId);
       })
       .catch(() => notify.error(texts.somethingWentWrong));
     return () => {
@@ -73,10 +109,11 @@ export function StaffForm({ memberId }: { memberId?: string }) {
 
   useEffect(() => {
     let gone = false;
-    void Promise.all([loadNamedRecords('/trainers'), loadLinkedTrainerIds()])
+    const typeIds = typeKey === '' ? [] : typeKey.split(',');
+    void Promise.all([loadPersonResources(typeIds), loadLinkedResourceIds()])
       .then(([cards, linked]) => {
         if (gone) return;
-        setTrainers(cards);
+        setResources(cards);
         setLinkedIds(linked);
         setListsReady(true);
       })
@@ -84,13 +121,21 @@ export function StaffForm({ memberId }: { memberId?: string }) {
     return () => {
       gone = true;
     };
-  }, [texts.somethingWentWrong]);
+  }, [texts.somethingWentWrong, typeKey]);
 
-  const trainerOptions = trainers
+  const resourceOptions = resources
     .filter(
-      (card) => !linkedIds.includes(card.id) || card.id === loadedTrainerId,
+      (card) => !linkedIds.includes(card.id) || card.id === loadedResourceId,
     )
     .map((card) => ({ value: card.id, label: card.name }));
+
+  const roleOptions = [
+    { value: 'administrator', label: texts.administrator },
+    { value: 'accountant', label: texts.accountant },
+  ];
+  if (people.length > 0 || role === 'specialist') {
+    roleOptions.push({ value: 'specialist', label: specialistName });
+  }
 
   function fieldError(error: unknown): boolean {
     if (!(error instanceof ApiError)) return false;
@@ -102,19 +147,19 @@ export function StaffForm({ memberId }: { memberId?: string }) {
       setEmailError(texts.emailIsOwner);
       return true;
     }
-    if (error.code === 'TRAINER_ALREADY_LINKED') {
-      setTrainerError(texts.trainerAlreadyLinked);
+    if (error.code === 'SPECIALIST_ALREADY_LINKED') {
+      setResourceError(texts.trainerAlreadyLinked);
       return true;
     }
     if (error.code === 'VALIDATION_ERROR' && error.field === 'email') {
       setEmailError(texts.invalidEmail);
       return true;
     }
-    const trainer = error.fieldErrors.find(
-      (item) => item.field === 'trainerId',
+    const resource = error.fieldErrors.find(
+      (item) => item.field === 'resourceId',
     );
-    if (trainer?.code === 'REQUIRED') {
-      setTrainerError(texts.selectTrainer);
+    if (resource?.code === 'REQUIRED') {
+      setResourceError(texts.selectTrainer);
       return true;
     }
     return false;
@@ -127,17 +172,21 @@ export function StaffForm({ memberId }: { memberId?: string }) {
       setEmailError(texts.invalidEmail);
       return;
     }
-    if (role === 'trainer' && !trainerId) {
-      setTrainerError(texts.selectTrainer);
+    if (role === 'specialist' && !resourceId) {
+      setResourceError(texts.selectTrainer);
       return;
     }
     setPending(true);
     try {
       if (editing && memberId) {
-        const body: { role?: StaffMember['role']; trainerId?: string } = {};
+        const body: { role?: StaffMember['role']; resourceId?: string } = {};
         if (role !== loadedRole) body.role = role;
-        if (role === 'trainer' && trainerId && trainerId !== loadedTrainerId) {
-          body.trainerId = trainerId;
+        if (
+          role === 'specialist' &&
+          resourceId &&
+          resourceId !== loadedResourceId
+        ) {
+          body.resourceId = resourceId;
         }
         await getApi().request(`/staff/${memberId}`, { method: 'PATCH', body });
         notify.success(texts.staffUpdated);
@@ -145,8 +194,8 @@ export function StaffForm({ memberId }: { memberId?: string }) {
         await getApi().request('/staff', {
           method: 'POST',
           body:
-            role === 'trainer'
-              ? { email: email.trim(), role, trainerId }
+            role === 'specialist'
+              ? { email: email.trim(), role, resourceId }
               : { email: email.trim(), role },
         });
         notify.success(texts.staffAdded);
@@ -172,7 +221,7 @@ export function StaffForm({ memberId }: { memberId?: string }) {
     }
   }
 
-  const cardChanged = role === 'trainer' && trainerId !== loadedTrainerId;
+  const cardChanged = role === 'specialist' && resourceId !== loadedResourceId;
   const canSave = editing
     ? loadedRole !== null && (role !== loadedRole || cardChanged)
     : email.trim() !== '';
@@ -233,33 +282,29 @@ export function StaffForm({ memberId }: { memberId?: string }) {
             value={role}
             onValueChange={(next) => {
               setRole(next as StaffMember['role']);
-              setTrainerError(null);
+              setResourceError(null);
             }}
-            options={[
-              { value: 'administrator', label: texts.administrator },
-              { value: 'accountant', label: texts.accountant },
-              { value: 'trainer', label: texts.trainer },
-            ]}
+            options={roleOptions}
           />
         </Field>
-        {role === 'trainer' && (
+        {role === 'specialist' && (
           <Field
-            id="trainer"
-            label={texts.trainer}
+            id="specialist"
+            label={specialistName}
             required
-            error={trainerError}
+            error={resourceError}
           >
             <Select
-              id="trainer"
-              value={trainerId ?? ''}
+              id="specialist"
+              value={resourceId ?? ''}
               disabled={!listsReady}
-              invalid={trainerError !== null}
+              invalid={resourceError !== null}
               placeholder={texts.selectTrainer}
               onValueChange={(next) => {
-                setTrainerId(next);
-                setTrainerError(null);
+                setResourceId(next);
+                setResourceError(null);
               }}
-              options={trainerOptions}
+              options={resourceOptions}
             />
           </Field>
         )}
@@ -275,8 +320,29 @@ export function StaffForm({ memberId }: { memberId?: string }) {
   );
 }
 
-/** Every catalog trainer already linked to a staff member, across pages. */
-async function loadLinkedTrainerIds(): Promise<string[]> {
+export async function loadPersonResources(
+  typeIds: string[],
+): Promise<{ id: string; name: string }[]> {
+  const items: { id: string; name: string }[] = [];
+  for (const typeId of typeIds) {
+    let page = 1;
+    let totalPages = 1;
+    while (page <= totalPages && page <= 20) {
+      const body = resourcePageSchema.parse(
+        await getApi().request(
+          `/resources?resourceTypeId=${encodeURIComponent(typeId)}&currentPage=${page}&perPage=100`,
+        ),
+      );
+      items.push(...body.items);
+      totalPages = body.meta.totalPages;
+      page += 1;
+    }
+  }
+  return items;
+}
+
+/** Every person resource already linked to a staff member, across pages. */
+async function loadLinkedResourceIds(): Promise<string[]> {
   const ids: string[] = [];
   let page = 1;
   let totalPages = 1;
@@ -285,7 +351,7 @@ async function loadLinkedTrainerIds(): Promise<string[]> {
       await getApi().request<unknown>(`/staff?currentPage=${page}&perPage=100`),
     );
     for (const item of body.items) {
-      if (item.trainerId) ids.push(item.trainerId);
+      if (item.resourceId) ids.push(item.resourceId);
     }
     totalPages = body.meta.totalPages;
     page += 1;

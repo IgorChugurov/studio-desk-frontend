@@ -1,6 +1,11 @@
 import { z } from 'zod';
+import {
+  SECTION_ORDER,
+  sameSections,
+  type SectionId,
+} from '../../shared/organization-config';
 
-/** The platform domain: studios live at `{subdomain}.{PLATFORM_DOMAIN}`. */
+/** The platform domain: organizations live at `{subdomain}.{PLATFORM_DOMAIN}`. */
 export const PLATFORM_DOMAIN = 'studio-desk.axondigital.xyz';
 
 /** Texts of the field errors (`overview.md`, flow 3). */
@@ -11,11 +16,20 @@ export const FIELD_TEXTS = {
   subdomainTaken: 'This subdomain is already taken',
   subdomainReserved: 'This subdomain is reserved',
   customDomain: 'Enter a valid domain, for example yogaspace.com',
-  customDomainTaken: 'This domain is already used by another studio',
+  customDomainTaken: 'This domain is already used by another organization',
   ownerEmail: 'Enter a valid e-mail address',
+  ownerIsStaff: 'This e-mail is already a staff member of this organization',
+  preset: 'Select a preset',
+  sections: 'Select at least one section',
 } as const;
 
-export type FieldName = 'name' | 'subdomain' | 'customDomain' | 'ownerEmail';
+export type FieldName =
+  | 'name'
+  | 'subdomain'
+  | 'customDomain'
+  | 'ownerEmail'
+  | 'presetId'
+  | 'sections';
 export type FieldErrors = Partial<Record<FieldName, string>>;
 
 /** What the form edits. All values are plain text. */
@@ -24,6 +38,9 @@ export interface StudioValues {
   subdomain: string;
   customDomain: string;
   ownerEmail: string;
+  presetId: string;
+  presetName: string;
+  sections: string[];
 }
 
 export const EMPTY_VALUES: StudioValues = {
@@ -31,6 +48,9 @@ export const EMPTY_VALUES: StudioValues = {
   subdomain: '',
   customDomain: '',
   ownerEmail: '',
+  presetId: '',
+  presetName: '',
+  sections: [...SECTION_ORDER],
 };
 
 /** Trim and lowercase, as the API does before it checks the formats. */
@@ -40,6 +60,9 @@ export function normalize(values: StudioValues): StudioValues {
     subdomain: values.subdomain.trim().toLowerCase(),
     customDomain: values.customDomain.trim().toLowerCase(),
     ownerEmail: values.ownerEmail.trim().toLowerCase(),
+    presetId: values.presetId,
+    presetName: values.presetName,
+    sections: values.sections,
   };
 }
 
@@ -57,8 +80,11 @@ function isCustomDomain(value: string): boolean {
 
 const emailSchema = z.email();
 
-/** Early feedback only; the API decides (`frontend-brief.md`, invariant 8). */
-export function validate(values: StudioValues): FieldErrors {
+/** Early feedback only; the API decides. */
+export function validate(
+  values: StudioValues,
+  mode: 'create' | 'edit' = 'create',
+): FieldErrors {
   const v = normalize(values);
   const errors: FieldErrors = {};
   if (v.name.length < 2 || v.name.length > 100) errors.name = FIELD_TEXTS.name;
@@ -71,7 +97,17 @@ export function validate(values: StudioValues): FieldErrors {
   if (!emailSchema.safeParse(v.ownerEmail).success) {
     errors.ownerEmail = FIELD_TEXTS.ownerEmail;
   }
+  if (mode === 'create' && v.presetId.trim() === '') {
+    errors.presetId = FIELD_TEXTS.preset;
+  }
+  if (mode === 'edit' && v.sections.length === 0) {
+    errors.sections = FIELD_TEXTS.sections;
+  }
   return errors;
+}
+
+export function isSectionId(value: string): value is SectionId {
+  return SECTION_ORDER.includes(value as SectionId);
 }
 
 const TRANSLIT: Record<string, string> = {
@@ -115,7 +151,7 @@ const TRANSLIT: Record<string, string> = {
 };
 
 /**
- * A subdomain proposed from the studio name: Cyrillic is transliterated,
+ * A subdomain proposed from the organization name: Cyrillic is transliterated,
  * accents are dropped, everything else becomes hyphens. The result is cut to
  * 20 characters and starts with a letter. It may still be too short; the form
  * then shows the format error.
@@ -144,7 +180,7 @@ export function changeWarnings(
   const b = normalize(after);
   const lines: string[] = [];
   if (a.subdomain !== b.subdomain || a.customDomain !== b.customDomain) {
-    lines.push('The old address will stop opening the studio site');
+    lines.push('The old address will stop opening the organization site');
   }
   if (a.ownerEmail !== b.ownerEmail) {
     lines.push(
@@ -168,6 +204,7 @@ export function changedBody(
     body.customDomain = b.customDomain === '' ? null : b.customDomain;
   }
   if (a.ownerEmail !== b.ownerEmail) body.owner = { email: b.ownerEmail };
+  if (!sameSections(a.sections, b.sections)) body.sections = b.sections;
   return body;
 }
 
@@ -183,10 +220,11 @@ export function createBody(values: StudioValues) {
     subdomain: v.subdomain,
     customDomain: v.customDomain === '' ? null : v.customDomain,
     owner: { email: v.ownerEmail },
+    presetId: v.presetId,
   };
 }
 
-/** The address a studio gets, shown under the subdomain field. */
+/** The address an organization gets, shown under the subdomain field. */
 export function studioAddress(subdomain: string): string {
   return `${subdomain.trim().toLowerCase()}.${PLATFORM_DOMAIN}`;
 }

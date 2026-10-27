@@ -19,7 +19,7 @@ describe('Remove staff member', () => {
     );
     expect(
       screen.getByText(
-        'olga@example.com will lose access to the studio immediately. You can add this e-mail again at any time',
+        'olga@example.com will lose access to the organization immediately. You can add this e-mail again at any time',
       ),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));

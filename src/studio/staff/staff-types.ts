@@ -3,8 +3,8 @@ import { z } from 'zod';
 export const staffMemberSchema = z.object({
   id: z.string(),
   email: z.string(),
-  role: z.enum(['administrator', 'accountant', 'trainer']),
-  trainerId: z.string().nullable(),
+  role: z.enum(['administrator', 'accountant', 'specialist']),
+  resourceId: z.string().nullable(),
   createdAt: z.string(),
 });
 export type StaffMember = z.infer<typeof staffMemberSchema>;

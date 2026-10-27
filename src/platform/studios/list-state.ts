@@ -48,7 +48,7 @@ export function listQuery(params: ListParams): string {
   return query.toString();
 }
 
-/** Query of `GET /studios`. */
+/** Query of `GET /organizations`. */
 export function apiQuery(params: ListParams): string {
   const query = new URLSearchParams({
     status: params.status,

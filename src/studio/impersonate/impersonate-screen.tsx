@@ -7,7 +7,7 @@ import { getApi } from '../api/api';
 import { firstSection, sectionPath } from '../sections';
 
 const EXPIRED =
-  'This link has expired. Open the studio again from the platform admin';
+  'This link has expired. Open the organization again from the platform admin';
 
 function codeFromAddress(): string | null {
   const raw = window.location.hash.startsWith('#')

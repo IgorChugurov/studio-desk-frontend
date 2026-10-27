@@ -2,26 +2,31 @@ import { z } from 'zod';
 
 /**
  * The OpenAPI document of the platform API does not describe response bodies
- * yet, so the studio answers are checked here by their shape from
- * `api-contract.md`. Replace with generated types when the backend documents
- * its responses.
+ * yet, so the organization answers are checked here by their shape from
+ * `api-contract.md`.
  */
-export const studioStatusSchema = z.enum(['active', 'deactivated']);
-export type StudioStatus = z.infer<typeof studioStatusSchema>;
+export const organizationStatusSchema = z.enum(['active', 'deactivated']);
+export type OrganizationStatus = z.infer<typeof organizationStatusSchema>;
 
-export const studioListItemSchema = z.object({
+const presetRefSchema = z.object({
+  id: z.string().nullable(),
+  name: z.string(),
+});
+
+export const organizationListItemSchema = z.object({
   id: z.string(),
   name: z.string(),
+  preset: presetRefSchema,
   subdomain: z.string(),
   customDomain: z.string().nullable(),
   owner: z.object({ email: z.string() }),
-  status: studioStatusSchema,
+  status: organizationStatusSchema,
   createdAt: z.string(),
 });
-export type StudioListItem = z.infer<typeof studioListItemSchema>;
+export type OrganizationListItem = z.infer<typeof organizationListItemSchema>;
 
-export const studiosPageSchema = z.object({
-  items: z.array(studioListItemSchema),
+export const organizationsPageSchema = z.object({
+  items: z.array(organizationListItemSchema),
   meta: z.object({
     currentPage: z.number(),
     perPage: z.number(),
@@ -29,17 +34,21 @@ export const studiosPageSchema = z.object({
     totalPages: z.number(),
   }),
 });
-export type StudiosPage = z.infer<typeof studiosPageSchema>;
+export type OrganizationsPage = z.infer<typeof organizationsPageSchema>;
 
-/** `GET /studios/{id}`, and the answer of create and update. */
-export const studioSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  subdomain: z.string(),
-  customDomain: z.string().nullable(),
-  owner: z.object({ email: z.string() }),
-  status: studioStatusSchema,
-  createdAt: z.string(),
+/** `GET /organizations/{id}`, and the answer of create and update. */
+export const organizationSchema = organizationListItemSchema.extend({
+  sections: z.array(z.string()),
   updatedAt: z.string(),
 });
-export type Studio = z.infer<typeof studioSchema>;
+export type Organization = z.infer<typeof organizationSchema>;
+
+/** @deprecated Use organization names. Kept so older imports still type-check during the move. */
+export const studioStatusSchema = organizationStatusSchema;
+export type StudioStatus = OrganizationStatus;
+export const studioListItemSchema = organizationListItemSchema;
+export type StudioListItem = OrganizationListItem;
+export const studiosPageSchema = organizationsPageSchema;
+export type StudiosPage = OrganizationsPage;
+export const studioSchema = organizationSchema;
+export type Studio = Organization;

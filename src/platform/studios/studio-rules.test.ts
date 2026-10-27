@@ -16,6 +16,9 @@ const studio = {
   subdomain: 'yoga-space',
   customDomain: '',
   ownerEmail: 'owner@example.com',
+  presetId: 'p1',
+  presetName: 'Fitness Studio',
+  sections: ['schedule'],
 };
 
 describe('proposeSubdomain', () => {
@@ -48,6 +51,7 @@ describe('validate', () => {
       name: FIELD_TEXTS.name,
       subdomain: FIELD_TEXTS.subdomain,
       ownerEmail: FIELD_TEXTS.ownerEmail,
+      presetId: FIELD_TEXTS.preset,
     });
     expect(validate({ ...studio, customDomain: 'https://x.com' })).toEqual({
       customDomain: FIELD_TEXTS.customDomain,
@@ -96,7 +100,7 @@ describe('changes', () => {
     expect(changeWarnings(studio, { ...studio, name: 'New name' })).toEqual([]);
     expect(
       changeWarnings(studio, { ...studio, subdomain: 'yoga-two' }),
-    ).toEqual(['The old address will stop opening the studio site']);
+    ).toEqual(['The old address will stop opening the organization site']);
     expect(
       changeWarnings(studio, { ...studio, customDomain: 'yogaspace.com' }),
     ).toHaveLength(1);
@@ -141,6 +145,7 @@ describe('changes', () => {
       subdomain: 'yoga-space',
       customDomain: null,
       owner: { email: 'owner@example.com' },
+      presetId: 'p1',
     });
   });
 

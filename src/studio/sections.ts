@@ -1,15 +1,12 @@
-/** Section order from the studio admin canon. */
-export const SECTION_ORDER = [
-  'schedule',
-  'catalogs',
-  'clients',
-  'subscriptions',
-  'accounting',
-  'studio-settings',
-  'staff',
-] as const;
+import {
+  SECTION_ORDER as ORDER,
+  type SectionId,
+} from '../shared/organization-config';
 
-export type SectionId = (typeof SECTION_ORDER)[number];
+/** Section order from the organization admin canon. */
+export const SECTION_ORDER = ORDER;
+
+export type { SectionId };
 
 const PATH: Record<SectionId, string> = {
   schedule: '/schedule',
@@ -17,7 +14,7 @@ const PATH: Record<SectionId, string> = {
   clients: '/clients',
   subscriptions: '/subscriptions',
   accounting: '/accounting',
-  'studio-settings': '/settings',
+  'organization-settings': '/settings',
   staff: '/staff',
 };
 
@@ -27,7 +24,7 @@ const FROM_PATH: Record<string, SectionId> = {
   clients: 'clients',
   subscriptions: 'subscriptions',
   accounting: 'accounting',
-  settings: 'studio-settings',
+  settings: 'organization-settings',
   staff: 'staff',
 };
 

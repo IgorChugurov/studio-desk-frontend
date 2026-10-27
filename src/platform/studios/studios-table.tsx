@@ -18,7 +18,7 @@ import {
   TableRow,
 } from '../../shared/ui/table';
 import { StatusTag } from './status-tag';
-import type { StudioListItem } from './studio-types';
+import type { OrganizationListItem } from './studio-types';
 
 const MONTHS = [
   'Jan',
@@ -43,7 +43,7 @@ export function formatCreated(iso: string): string {
   return `${day} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 }
 
-/** Table of the studios. A click on a row opens the studio. */
+/** Table of the organizations. A click on a row opens the organization. */
 export function StudiosTable({
   items,
   onOpen,
@@ -51,17 +51,18 @@ export function StudiosTable({
   onActivate,
   onLoginAs,
 }: {
-  items: StudioListItem[];
+  items: OrganizationListItem[];
   onOpen: (id: string) => void;
-  onDeactivate: (studio: StudioListItem) => void;
-  onActivate: (studio: StudioListItem) => void;
-  onLoginAs: (studio: StudioListItem) => void;
+  onDeactivate: (organization: OrganizationListItem) => void;
+  onActivate: (organization: OrganizationListItem) => void;
+  onLoginAs: (organization: OrganizationListItem) => void;
 }) {
   return (
     <Table className="min-w-[1000px]">
       <TableHeader>
         <TableRow>
           <TableHead>Name</TableHead>
+          <TableHead>Preset</TableHead>
           <TableHead>Subdomain</TableHead>
           <TableHead>Custom domain</TableHead>
           <TableHead>Owner (e-mail)</TableHead>
@@ -71,30 +72,31 @@ export function StudiosTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {items.map((studio) => (
+        {items.map((organization) => (
           <TableRow
-            key={studio.id}
+            key={organization.id}
             className="cursor-pointer"
-            onClick={() => onOpen(studio.id)}
+            onClick={() => onOpen(organization.id)}
           >
             <TableCell className="font-[var(--body-font-weight-strong)]">
               <Link
-                href={`/studios/${studio.id}`}
+                href={`/organizations/${organization.id}`}
                 onClick={(event) => event.stopPropagation()}
               >
-                {studio.name}
+                {organization.name}
               </Link>
             </TableCell>
-            <TableCell>{studio.subdomain}</TableCell>
+            <TableCell>{organization.preset.name}</TableCell>
+            <TableCell>{organization.subdomain}</TableCell>
             <TableCell className="text-[var(--text-gray-secondary)]">
-              {studio.customDomain ?? '—'}
+              {organization.customDomain ?? '—'}
             </TableCell>
-            <TableCell>{studio.owner.email}</TableCell>
+            <TableCell>{organization.owner.email}</TableCell>
             <TableCell>
-              <StatusTag status={studio.status} />
+              <StatusTag status={organization.status} />
             </TableCell>
             <TableCell className="whitespace-nowrap">
-              {formatCreated(studio.createdAt)}
+              {formatCreated(organization.createdAt)}
             </TableCell>
             <TableCell className="py-[var(--space-200)]">
               <div
@@ -106,20 +108,20 @@ export function StudiosTable({
                     <Button
                       variant="icon"
                       size="md"
-                      aria-label={`Actions for ${studio.name}`}
+                      aria-label={`Actions for ${organization.name}`}
                     >
                       <EllipsisVertical aria-hidden />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => onOpen(studio.id)}>
+                    <DropdownMenuItem onSelect={() => onOpen(organization.id)}>
                       <Pencil aria-hidden className="size-4" />
                       Edit
                     </DropdownMenuItem>
-                    {studio.status === 'active' ? (
+                    {organization.status === 'active' ? (
                       <DropdownMenuItem
                         className="text-[var(--text-error-default)]"
-                        onSelect={() => onDeactivate(studio)}
+                        onSelect={() => onDeactivate(organization)}
                       >
                         <PowerOff
                           aria-hidden
@@ -128,14 +130,16 @@ export function StudiosTable({
                         Deactivate
                       </DropdownMenuItem>
                     ) : (
-                      <DropdownMenuItem onSelect={() => onActivate(studio)}>
+                      <DropdownMenuItem
+                        onSelect={() => onActivate(organization)}
+                      >
                         <Power aria-hidden className="size-4" />
                         Activate
                       </DropdownMenuItem>
                     )}
-                    <DropdownMenuItem onSelect={() => onLoginAs(studio)}>
+                    <DropdownMenuItem onSelect={() => onLoginAs(organization)}>
                       <LogIn aria-hidden className="size-4" />
-                      Log in as studio
+                      Log in as organization
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

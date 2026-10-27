@@ -32,6 +32,8 @@ const studio = {
   subdomain: 'yoga-space',
   customDomain: null,
   owner: { email: 'owner@example.com' },
+  preset: { id: 'p1', name: 'Fitness Studio' },
+  sections: ['schedule', 'organization-settings'],
   status: 'deactivated',
   createdAt: '2026-10-03T10:00:00Z',
   updatedAt: '2026-10-03T10:00:00Z',
@@ -67,21 +69,35 @@ afterEach(cleanup);
 
 describe('StudioPage: new', () => {
   it('creates the studio, shows the message and returns to the same list', async () => {
-    request.mockResolvedValue(studio);
+    request.mockImplementation((path: string) => {
+      if (String(path).startsWith('/presets')) {
+        return Promise.resolve({
+          items: [{ id: 'p1', name: 'Fitness Studio' }],
+          meta: {
+            currentPage: 1,
+            perPage: 100,
+            totalItems: 1,
+            totalPages: 1,
+          },
+        });
+      }
+      return Promise.resolve(studio);
+    });
     await renderPage();
     type(/^Name/, 'Yoga Space');
     type(/^Owner e-mail/, 'owner@example.com');
     await press('Save');
-    expect(request).toHaveBeenCalledWith('/studios', {
+    expect(request).toHaveBeenCalledWith('/organizations', {
       method: 'POST',
       body: {
         name: 'Yoga Space',
         subdomain: 'yoga-space',
         customDomain: null,
         owner: { email: 'owner@example.com' },
+        presetId: 'p1',
       },
     });
-    expect(notify.success).toHaveBeenCalledWith('Studio created');
+    expect(notify.success).toHaveBeenCalledWith('Organization created');
     expect(router.push).toHaveBeenCalledWith('/?status=deactivated&page=2');
   });
 
@@ -96,7 +112,7 @@ describe('StudioPage: edit', () => {
   it('loads the studio and fills the form', async () => {
     request.mockResolvedValue(studio);
     await renderPage('s1');
-    expect(request).toHaveBeenCalledWith('/studios/s1');
+    expect(request).toHaveBeenCalledWith('/organizations/s1');
     expect((screen.getByLabelText(/^Name/) as HTMLInputElement).value).toBe(
       'Yoga Space',
     );
@@ -108,11 +124,11 @@ describe('StudioPage: edit', () => {
     await renderPage('s1');
     type(/^Name/, 'New name');
     await press('Update');
-    expect(request).toHaveBeenLastCalledWith('/studios/s1', {
+    expect(request).toHaveBeenLastCalledWith('/organizations/s1', {
       method: 'PATCH',
       body: { name: 'New name' },
     });
-    expect(notify.success).toHaveBeenCalledWith('Studio updated');
+    expect(notify.success).toHaveBeenCalledWith('Organization updated');
     expect(router.push).toHaveBeenCalledWith('/?status=deactivated&page=2');
   });
 
@@ -135,10 +151,10 @@ describe('StudioPage: actions', () => {
     await renderPage('s1');
     expect(screen.queryByRole('button', { name: 'Activate' })).toBeNull();
     await press('Deactivate');
-    expect(screen.getByText('Deactivate studio?')).toBeTruthy();
+    expect(screen.getByText('Deactivate organization?')).toBeTruthy();
     expect(
       screen.getByText(
-        /Studio "Yoga Space" will be closed: its owner and staff won't be able to sign in and its public site will be hidden\. Data is kept\. You can activate it again at any time/,
+        /Organization "Yoga Space" will be closed: its owner and staff won't be able to sign in and its public site will be hidden\. Data is kept\. You can activate it again at any time/,
       ),
     ).toBeTruthy();
     expect(request).toHaveBeenCalledTimes(1);
@@ -149,7 +165,7 @@ describe('StudioPage: actions', () => {
     await renderPage('s1');
     await press('Deactivate');
     await press('Cancel');
-    expect(screen.queryByText('Deactivate studio?')).toBeNull();
+    expect(screen.queryByText('Deactivate organization?')).toBeNull();
     expect(request).toHaveBeenCalledTimes(1);
   });
 
@@ -163,12 +179,12 @@ describe('StudioPage: actions', () => {
     await act(async () => {
       fireEvent.click(confirm);
     });
-    expect(request).toHaveBeenLastCalledWith('/studios/s1/deactivate', {
+    expect(request).toHaveBeenLastCalledWith('/organizations/s1/deactivate', {
       method: 'POST',
     });
-    expect(notify.success).toHaveBeenCalledWith('Studio deactivated');
+    expect(notify.success).toHaveBeenCalledWith('Organization deactivated');
     expect(router.push).not.toHaveBeenCalled();
-    expect(screen.queryByText('Deactivate studio?')).toBeNull();
+    expect(screen.queryByText('Deactivate organization?')).toBeNull();
     expect(screen.getByRole('button', { name: 'Activate' })).toBeTruthy();
     expect(screen.getByText('Deactivated')).toBeTruthy();
   });
@@ -177,10 +193,10 @@ describe('StudioPage: actions', () => {
     request.mockResolvedValueOnce(deactivated).mockResolvedValueOnce(active);
     await renderPage('s1');
     await press('Activate');
-    expect(request).toHaveBeenLastCalledWith('/studios/s1/activate', {
+    expect(request).toHaveBeenLastCalledWith('/organizations/s1/activate', {
       method: 'POST',
     });
-    expect(notify.success).toHaveBeenCalledWith('Studio activated');
+    expect(notify.success).toHaveBeenCalledWith('Organization activated');
     expect(screen.getByRole('button', { name: 'Deactivate' })).toBeTruthy();
   });
 
@@ -196,7 +212,7 @@ describe('StudioPage: actions', () => {
     expect(screen.getByRole('button', { name: 'Activate' })).toBeTruthy();
   });
 
-  describe('Log in as studio', () => {
+  describe('Log in as organization', () => {
     const tab = { location: { href: '' }, close: vi.fn(), opener: {} };
     let open: ReturnType<typeof vi.fn>;
 
@@ -218,16 +234,19 @@ describe('StudioPage: actions', () => {
       await renderPage('s1');
       await act(async () => {
         fireEvent.click(
-          screen.getByRole('button', { name: 'Log in as studio' }),
+          screen.getByRole('button', { name: 'Log in as organization' }),
         );
       });
       // The tab is opened before the API has answered.
       expect(open).toHaveBeenCalledWith('', '_blank');
       expect(tab.opener).toBeNull();
       expect(tab.location.href).toBe('');
-      expect(request).toHaveBeenLastCalledWith('/studios/s1/impersonate', {
-        method: 'POST',
-      });
+      expect(request).toHaveBeenLastCalledWith(
+        '/organizations/s1/impersonate',
+        {
+          method: 'POST',
+        },
+      );
       await act(async () => {
         answer({ code: 'k3J/x', expiresIn: 60 });
       });
@@ -242,7 +261,7 @@ describe('StudioPage: actions', () => {
         .mockResolvedValueOnce(studio)
         .mockRejectedValueOnce(new Error('x'));
       await renderPage('s1');
-      await press('Log in as studio');
+      await press('Log in as organization');
       expect(tab.close).toHaveBeenCalled();
       expect(notify.error).toHaveBeenCalledWith(
         'Something went wrong. Try again',
@@ -253,7 +272,7 @@ describe('StudioPage: actions', () => {
       open.mockReturnValue(null);
       request.mockResolvedValueOnce(studio);
       await renderPage('s1');
-      await press('Log in as studio');
+      await press('Log in as organization');
       expect(request).toHaveBeenCalledTimes(1);
       expect(notify.error).toHaveBeenCalledWith(
         'Something went wrong. Try again',

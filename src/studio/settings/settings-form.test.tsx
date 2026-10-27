@@ -20,6 +20,34 @@ vi.mock('../api/api', () => ({
           country: 'SK',
           currency: 'EUR',
           timeZone: 'Europe/Bratislava',
+          catalogConfig: {
+            resourceTypes: [
+              {
+                id: 'rt-place',
+                sortOrder: 0,
+                role: 'place',
+                labels: {
+                  en: { singular: 'Hall', plural: 'Halls' },
+                  sk: { singular: 'Sála', plural: 'Sály' },
+                  uk: { singular: 'Зал', plural: 'Зали' },
+                },
+                geography: true,
+                duration: false,
+                showcase: false,
+                person: false,
+                skills: false,
+                required: true,
+                multiple: false,
+                conflictMode: 'strict',
+              },
+            ],
+          },
+          scheduleConfig: {
+            audienceEnabled: true,
+            formatEnabled: true,
+            statuses: ['planned', 'cancelled'],
+          },
+          billingConfig: { settlementMode: 'subscription' },
         });
       }
       return Promise.resolve({

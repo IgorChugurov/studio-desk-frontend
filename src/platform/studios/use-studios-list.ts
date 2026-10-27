@@ -3,20 +3,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getApi } from '../api/api';
 import { apiQuery, type ListParams } from './list-state';
-import { studiosPageSchema, type StudiosPage } from './studio-types';
+import {
+  organizationsPageSchema,
+  type OrganizationsPage,
+} from './studio-types';
 
 export interface StudiosListState {
   /** The last loaded page; stays on screen while the next one loads. */
-  data: StudiosPage | null;
+  data: OrganizationsPage | null;
   loading: boolean;
   failed: boolean;
-  /** Loads the same page again, e.g. after an action changed a studio. */
+  /** Loads the same page again, e.g. after an action changed an organization. */
   reload: () => void;
 }
 
-/** Loads one page of studios; every change of the parameters loads again. */
+/** Loads one page of organizations; every change of the parameters loads again. */
 export function useStudiosList(params: ListParams): StudiosListState {
-  const [data, setData] = useState<StudiosPage | null>(null);
+  const [data, setData] = useState<OrganizationsPage | null>(null);
   const [outcome, setOutcome] = useState<{
     key: string;
     failed: boolean;
@@ -28,10 +31,10 @@ export function useStudiosList(params: ListParams): StudiosListState {
     let current = true;
     const [query] = key.split('#');
     getApi()
-      .request<unknown>(`/studios?${query}`)
+      .request<unknown>(`/organizations?${query}`)
       .then((body) => {
         if (!current) return;
-        setData(studiosPageSchema.parse(body));
+        setData(organizationsPageSchema.parse(body));
         setOutcome({ key, failed: false });
       })
       .catch(() => {

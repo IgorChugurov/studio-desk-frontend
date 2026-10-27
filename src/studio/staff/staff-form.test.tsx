@@ -21,7 +21,27 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('../api/session-provider', () => ({
-  useSession: () => ({ status: 'signed-in', language: 'en' }),
+  useSession: () => ({
+    status: 'signed-in',
+    language: 'en',
+    config: {
+      catalogConfig: {
+        resourceTypes: [
+          {
+            id: 'rt-trainer',
+            sortOrder: 1,
+            role: 'resource',
+            labels: {
+              en: { singular: 'Trainer', plural: 'Trainers' },
+              sk: { singular: 'Tréner', plural: 'Tréneri' },
+              uk: { singular: 'Тренер', plural: 'Тренери' },
+            },
+            person: true,
+          },
+        ],
+      },
+    },
+  }),
 }));
 
 vi.mock('../api/api', () => ({
@@ -35,9 +55,9 @@ vi.mock('../../shared/ui/toaster', () => ({
 const anna = { id: 'anna', name: 'Anna' };
 const boris = { id: 'boris', name: 'Boris' };
 
-function lists(linked: { id: string; trainerId: string | null }[] = []) {
+function lists(linked: { id: string; resourceId: string | null }[] = []) {
   request.mockImplementation((path: string) => {
-    if (String(path).startsWith('/trainers')) {
+    if (String(path).startsWith('/resources')) {
       return Promise.resolve({
         items: [anna, boris],
         meta: { totalPages: 1 },
@@ -48,8 +68,8 @@ function lists(linked: { id: string; trainerId: string | null }[] = []) {
         items: linked.map((item) => ({
           id: item.id,
           email: `${item.id}@example.com`,
-          role: item.trainerId ? 'trainer' : 'administrator',
-          trainerId: item.trainerId,
+          role: item.resourceId ? 'specialist' : 'administrator',
+          resourceId: item.resourceId,
           createdAt: '2026-10-16T10:00:00Z',
         })),
         meta: {
@@ -92,7 +112,7 @@ describe('Staff form trainer link', () => {
   });
 
   it('refuses a trainer role until a free card is chosen', async () => {
-    lists([{ id: 'busy', trainerId: 'boris' }]);
+    lists([{ id: 'busy', resourceId: 'boris' }]);
     render(<StaffForm />);
     fireEvent.change(screen.getByRole('textbox', { name: 'E-mail' }), {
       target: { value: 'anna@example.com' },
@@ -100,7 +120,7 @@ describe('Staff form trainer link', () => {
     fireEvent.click(screen.getByRole('combobox', { name: 'Role' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Trainer' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(screen.getByRole('alert').textContent).toBe('Select a trainer');
+    expect(screen.getByRole('alert').textContent).toBe('Select a specialist');
     expect(request).not.toHaveBeenCalledWith(
       '/staff',
       expect.objectContaining({ method: 'POST' }),
@@ -115,27 +135,27 @@ describe('Staff form trainer link', () => {
         method: 'POST',
         body: {
           email: 'anna@example.com',
-          role: 'trainer',
-          trainerId: 'anna',
+          role: 'specialist',
+          resourceId: 'anna',
         },
       });
     });
   });
 
   it('keeps the current card, saves a new one, and drops the link when the role changes', async () => {
-    lists([{ id: 'member', trainerId: 'anna' }]);
+    lists([{ id: 'member', resourceId: 'anna' }]);
     request.mockImplementation((path: string, init?: { method?: string }) => {
       if (init?.method === 'PATCH') return Promise.resolve({});
       if (String(path) === '/staff/member') {
         return Promise.resolve({
           id: 'member',
           email: 'anna@example.com',
-          role: 'trainer',
-          trainerId: 'anna',
+          role: 'specialist',
+          resourceId: 'anna',
           createdAt: '2026-10-16T10:00:00Z',
         });
       }
-      if (String(path).startsWith('/trainers')) {
+      if (String(path).startsWith('/resources')) {
         return Promise.resolve({
           items: [anna, boris],
           meta: { totalPages: 1 },
@@ -146,8 +166,8 @@ describe('Staff form trainer link', () => {
           {
             id: 'member',
             email: 'anna@example.com',
-            role: 'trainer',
-            trainerId: 'anna',
+            role: 'specialist',
+            resourceId: 'anna',
             createdAt: '2026-10-16T10:00:00Z',
           },
         ],
@@ -165,7 +185,7 @@ describe('Staff form trainer link', () => {
     await waitFor(() => {
       expect(request).toHaveBeenCalledWith('/staff/member', {
         method: 'PATCH',
-        body: { trainerId: 'boris' },
+        body: { resourceId: 'boris' },
       });
     });
 
@@ -185,9 +205,9 @@ describe('Staff form trainer link', () => {
     lists();
     request.mockImplementation((path: string, init?: { method?: string }) => {
       if (init?.method === 'POST') {
-        return Promise.reject(new ApiError(409, 'TRAINER_ALREADY_LINKED'));
+        return Promise.reject(new ApiError(409, 'SPECIALIST_ALREADY_LINKED'));
       }
-      if (String(path).startsWith('/trainers')) {
+      if (String(path).startsWith('/resources')) {
         return Promise.resolve({ items: [anna], meta: { totalPages: 1 } });
       }
       return Promise.resolve({
@@ -205,7 +225,7 @@ describe('Staff form trainer link', () => {
     fireEvent.click(await screen.findByRole('option', { name: 'Anna' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect((await screen.findByRole('alert')).textContent).toBe(
-      'This trainer is already linked to another staff member',
+      'This specialist is already linked to another staff member',
     );
     expect(notify.error).not.toHaveBeenCalled();
   });

@@ -21,9 +21,11 @@ describe('proxy', () => {
   });
 
   it('keeps the rest of the path under the internal prefix', () => {
-    const response = proxy(requestTo('admin.localhost:3001', '/studios/new'));
+    const response = proxy(
+      requestTo('admin.localhost:3001', '/organizations/new'),
+    );
     expect(response.headers.get('x-middleware-rewrite')).toBe(
-      'http://admin.localhost:3001/platform/studios/new',
+      'http://admin.localhost:3001/platform/organizations/new',
     );
   });
 
@@ -32,7 +34,8 @@ describe('proxy', () => {
       404,
     );
     expect(
-      proxy(requestTo('admin.localhost:3001', '/platform/studios')).status,
+      proxy(requestTo('admin.localhost:3001', '/platform/organizations'))
+        .status,
     ).toBe(404);
   });
 
@@ -63,7 +66,7 @@ describe('proxy', () => {
 
   it('leaves the local studio API path for the server to forward', () => {
     const response = proxy(
-      requestTo('app.localhost:3001', '/api/studio/auth/refresh'),
+      requestTo('app.localhost:3001', '/api/organization/auth/refresh'),
     );
     expect(response.status).toBe(200);
     expect(response.headers.get('x-middleware-rewrite')).toBeNull();
