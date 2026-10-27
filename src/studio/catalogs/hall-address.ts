@@ -6,7 +6,7 @@ export function addressAfterTypeChange(
   current: HallType,
   address: string,
 ): string {
-  if (next === 'virtual') return 'Virtual hall';
+  if (next === 'virtual') return 'Virtual place';
   if (current === 'virtual') return '';
   return address;
 }

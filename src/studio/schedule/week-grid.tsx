@@ -17,8 +17,8 @@ export function WeekGrid({
   onToggleEarly,
   onToggleLate,
   onCreate,
-  onOpenClass,
-  onOpenCancelled,
+  onOpenSlot,
+  onOpenInactive,
 }: {
   model: GridModel;
   earlyOpen: boolean;
@@ -30,8 +30,8 @@ export function WeekGrid({
   onToggleEarly: () => void;
   onToggleLate: () => void;
   onCreate: (date: string, minutes: number, columnId: string) => void;
-  onOpenClass: (classId: string) => void;
-  onOpenCancelled: (classIds: string[]) => void;
+  onOpenSlot: (slotId: string) => void;
+  onOpenInactive: (slotIds: string[]) => void;
 }) {
   if (model.kind === 'week') {
     return (
@@ -60,8 +60,8 @@ export function WeekGrid({
               onToggleEarly={onToggleEarly}
               onToggleLate={onToggleLate}
               onCreate={onCreate}
-              onOpenClass={onOpenClass}
-              onOpenCancelled={onOpenCancelled}
+              onOpenSlot={onOpenSlot}
+              onOpenInactive={onOpenInactive}
             />
           ))}
         </div>
@@ -112,8 +112,8 @@ export function WeekGrid({
                       onToggleEarly={onToggleEarly}
                       onToggleLate={onToggleLate}
                       onCreate={onCreate}
-                      onOpenClass={onOpenClass}
-                      onOpenCancelled={onOpenCancelled}
+                      onOpenSlot={onOpenSlot}
+                      onOpenInactive={onOpenInactive}
                     />
                   ))}
                 </div>
@@ -176,8 +176,8 @@ function Column({
   onToggleEarly,
   onToggleLate,
   onCreate,
-  onOpenClass,
-  onOpenCancelled,
+  onOpenSlot,
+  onOpenInactive,
 }: {
   model: GridModel;
   columnId: string;
@@ -191,8 +191,8 @@ function Column({
   onToggleEarly: () => void;
   onToggleLate: () => void;
   onCreate: (date: string, minutes: number, columnId: string) => void;
-  onOpenClass: (classId: string) => void;
-  onOpenCancelled: (classIds: string[]) => void;
+  onOpenSlot: (slotId: string) => void;
+  onOpenInactive: (slotIds: string[]) => void;
 }) {
   const cards = model.cards.filter(
     (card) => card.columnId === columnId && card.date === date,
@@ -266,7 +266,7 @@ function Column({
             key={card.key}
             type="button"
             className={`absolute inset-x-1 z-10 overflow-hidden rounded-[var(--radius-200)] border px-[var(--space-100)] py-px text-left font-[family-name:var(--body-font-family)] text-[length:var(--body-sizeS)] leading-4 ${
-              card.past
+              card.neutral || card.past || card.listIds
                 ? 'border-[var(--border-gray-default)] bg-[var(--background-gray-secondary)] text-[var(--text-gray-secondary)]'
                 : 'border-[var(--border-primary-default)] bg-[var(--background-primary-tertiary)] text-[var(--text-gray-default)]'
             }`}
@@ -280,8 +280,8 @@ function Column({
             }}
             onClick={() =>
               card.listIds
-                ? onOpenCancelled(card.listIds)
-                : onOpenClass(card.classId)
+                ? onOpenInactive(card.listIds)
+                : onOpenSlot(card.slotId)
             }
           >
             <span className="block truncate">
@@ -298,7 +298,7 @@ function Column({
           <button
             key={strip.key}
             type="button"
-            aria-label={texts.cancelled}
+            aria-label={strip.label}
             className="absolute right-0 z-10 w-2 rounded-[var(--radius-100)] bg-[var(--border-gray-default)]"
             style={{
               top: minuteTop(strip.startMin, earlyOpen, lateOpen),
@@ -308,7 +308,7 @@ function Column({
                 12,
               ),
             }}
-            onClick={() => onOpenCancelled(strip.classIds)}
+            onClick={() => onOpenInactive(strip.slotIds)}
           />
         ))}
       </div>

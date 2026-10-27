@@ -27,17 +27,32 @@ import { useSession } from '../api/session-provider';
 import { copy } from '../i18n/language';
 import { useCrumbs } from '../shell/crumbs';
 import { CatalogTabs } from './catalog-tabs';
-import { hallPageSchema, type Hall } from './hall-types';
+import {
+  resourcePageSchema,
+  sortedTypes,
+  typeLabel,
+  typePath,
+  type CatalogResource,
+} from './resource-types';
 
 const SEARCH_DELAY_MS = 300;
 
-/** Halls of this studio: search by name, then the table. */
-export function HallList() {
+/** Resources of one type: search by name, then the table. */
+export function ResourceList({ typeId }: { typeId?: string }) {
   const session = useSession();
-  const texts = copy(session.status === 'signed-in' ? session.language : 'en');
+  const language = session.status === 'signed-in' ? session.language : 'en';
+  const texts = copy(language);
+  const types =
+    session.status === 'signed-in'
+      ? sortedTypes(session.config.catalogConfig.resourceTypes)
+      : [];
+  const type = types.find((item) => item.id === typeId) ?? types[0];
+  const plural = type ? typeLabel(type, language, 'plural') : '';
+  const singular = type ? typeLabel(type, language, 'singular') : '';
+  const listPath = type ? typePath(type.id) : '/catalogs';
   useCrumbs([
     { label: texts.catalogs, href: '/catalogs' },
-    { label: texts.halls },
+    ...(type ? [{ label: plural }] : []),
   ]);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,7 +60,7 @@ export function HallList() {
   const page = Number(searchParams.get('page') ?? '1') || 1;
   const perPage = Number(searchParams.get('perPage') ?? '15') || 15;
   const [searchText, setSearchText] = useState(search);
-  const [items, setItems] = useState<Hall[] | null>(null);
+  const [items, setItems] = useState<CatalogResource[] | null>(null);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -53,27 +68,25 @@ export function HallList() {
     const text = searchText.trim();
     if (text === search) return;
     const timer = setTimeout(() => {
-      const params = new URLSearchParams();
-      if (text) params.set('search', text);
-      if (perPage !== 15) params.set('perPage', String(perPage));
-      const query = params.toString();
-      router.replace(query ? `/catalogs?${query}` : '/catalogs');
+      router.replace(href(listPath, { search: text, perPage }));
     }, SEARCH_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [searchText, search, perPage, router]);
+  }, [searchText, search, perPage, router, listPath]);
 
   useEffect(() => {
+    if (!type) return;
     let gone = false;
     const params = new URLSearchParams({
+      resourceTypeId: type.id,
       currentPage: String(page),
       perPage: String(perPage),
     });
     if (search) params.set('search', search);
     void getApi()
-      .request<unknown>(`/halls?${params.toString()}`)
+      .request<unknown>(`/resources?${params.toString()}`)
       .then((body) => {
         if (gone) return;
-        const parsed = hallPageSchema.parse(body);
+        const parsed = resourcePageSchema.parse(body);
         setItems(parsed.items);
         setTotalItems(parsed.meta.totalItems);
         setTotalPages(parsed.meta.totalPages);
@@ -82,31 +95,32 @@ export function HallList() {
     return () => {
       gone = true;
     };
-  }, [page, perPage, search, texts.somethingWentWrong]);
+  }, [type, page, perPage, search, texts.somethingWentWrong]);
+
+  if (!type) return null;
 
   function go(nextPage: number, nextPerPage = perPage) {
-    const params = new URLSearchParams();
-    if (search) params.set('search', search);
-    if (nextPage !== 1) params.set('page', String(nextPage));
-    if (nextPerPage !== 15) params.set('perPage', String(nextPerPage));
-    const query = params.toString();
-    router.push(query ? `/catalogs?${query}` : '/catalogs');
+    router.push(
+      href(listPath, {
+        search,
+        page: nextPage,
+        perPage: nextPerPage,
+      }),
+    );
   }
 
   function resetSearch() {
     setSearchText('');
-    const params = new URLSearchParams();
-    if (perPage !== 15) params.set('perPage', String(perPage));
-    const query = params.toString();
-    router.push(query ? `/catalogs?${query}` : '/catalogs');
+    router.push(href(listPath, { perPage }));
   }
 
   const empty = items !== null && items.length === 0;
   const emptySearch = empty && search.trim() !== '';
+  const addLabel = `Add ${singular}`;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <CatalogTabs current="/catalogs" />
+      <CatalogTabs current={listPath} />
       <div className="flex min-h-0 flex-1 flex-col gap-[var(--space-300)] p-[var(--space-400)]">
         <div className="flex shrink-0 flex-wrap items-center gap-[var(--space-200)]">
           <div className="flex min-w-0 flex-1 items-center">
@@ -117,7 +131,7 @@ export function HallList() {
             />
           </div>
           <Button asChild variant="cta" size="md" className="w-full sm:w-auto">
-            <Link href="/catalogs/new">{texts.addHall}</Link>
+            <Link href={`${listPath}/new`}>{addLabel}</Link>
           </Button>
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-200)] border border-[var(--border-gray-default)] bg-[var(--background-gray-default)]">
@@ -128,16 +142,16 @@ export function HallList() {
           )}
           {empty && !emptySearch && (
             <div className="flex flex-1 flex-col items-center justify-center gap-[var(--space-300)] p-[var(--space-600)] text-center">
-              <p className="text-[var(--text-gray-default)]">{texts.noHalls}</p>
+              <p className="text-[var(--text-gray-default)]">No {plural} yet</p>
               <Button asChild variant="outlined" size="md">
-                <Link href="/catalogs/new">{texts.addHall}</Link>
+                <Link href={`${listPath}/new`}>{addLabel}</Link>
               </Button>
             </div>
           )}
           {emptySearch && (
             <div className="flex flex-1 flex-col items-center justify-center gap-[var(--space-300)] p-[var(--space-600)] text-center">
               <h2 className="figma-body-m-medium text-[var(--text-gray-default)]">
-                {texts.noHallsFound}
+                No {plural} found
               </h2>
               <p className="figma-body-m-regular max-w-xs text-[var(--text-gray-secondary)]">
                 {texts.hallsSearchHint}
@@ -153,46 +167,30 @@ export function HallList() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{texts.name}</TableHead>
-                    <TableHead>{texts.address}</TableHead>
+                    {type.geography && <TableHead>{texts.address}</TableHead>}
+                    {type.duration && (
+                      <TableHead>{texts.defaultDuration}</TableHead>
+                    )}
                     <TableHead className="w-14" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((hall) => (
+                  {items.map((item) => (
                     <TableRow
-                      key={hall.id}
+                      key={item.id}
                       className="cursor-pointer"
-                      onClick={() => router.push(`/catalogs/${hall.id}`)}
+                      onClick={() => router.push(`${listPath}/${item.id}`)}
                     >
-                      <TableCell>{hall.name}</TableCell>
-                      <TableCell>{hall.address}</TableCell>
+                      <TableCell>{item.name}</TableCell>
+                      {type.geography && <TableCell>{item.address}</TableCell>}
+                      {type.duration && (
+                        <TableCell>{item.defaultDuration}</TableCell>
+                      )}
                       <TableCell>
-                        <div
-                          className="flex justify-end"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="icon"
-                                size="md"
-                                aria-label={texts.edit}
-                              >
-                                <EllipsisVertical aria-hidden />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onSelect={() =>
-                                  router.push(`/catalogs/${hall.id}`)
-                                }
-                              >
-                                <Pencil aria-hidden className="size-4" />
-                                {texts.edit}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
+                        <RowMenu
+                          label={texts.edit}
+                          onEdit={() => router.push(`${listPath}/${item.id}`)}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -214,4 +212,40 @@ export function HallList() {
       </div>
     </div>
   );
+}
+
+function RowMenu({ label, onEdit }: { label: string; onEdit: () => void }) {
+  return (
+    <div
+      className="flex justify-end"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="icon" size="md" aria-label={label}>
+            <EllipsisVertical aria-hidden />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={onEdit}>
+            <Pencil aria-hidden className="size-4" />
+            {label}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+function href(
+  path: string,
+  query: { search?: string; page?: number; perPage?: number },
+) {
+  const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
+  if (query.page && query.page !== 1) params.set('page', String(query.page));
+  if (query.perPage && query.perPage !== 15)
+    params.set('perPage', String(query.perPage));
+  const text = params.toString();
+  return text ? `${path}?${text}` : path;
 }

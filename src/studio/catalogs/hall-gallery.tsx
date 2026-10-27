@@ -8,7 +8,7 @@ import { notify } from '../../shared/ui/toaster';
 import { getApi } from '../api/api';
 import { useSession } from '../api/session-provider';
 import { copy } from '../i18n/language';
-import { recordImagesSchema, type HallFile } from './hall-types';
+import { recordImagesSchema, type ResourceFile } from './resource-types';
 
 /** Files of a saved hall. Adding, deleting, and reordering do not save the form. */
 export function HallGallery({
@@ -19,8 +19,8 @@ export function HallGallery({
   removeBody,
 }: {
   hallId: string;
-  images: HallFile[];
-  onChange: (images: HallFile[]) => void;
+  images: ResourceFile[];
+  onChange: (images: ResourceFile[]) => void;
   filesBase?: string;
   removeBody?: string;
 }) {
@@ -28,10 +28,10 @@ export function HallGallery({
   const texts = copy(session.status === 'signed-in' ? session.language : 'en');
   const input = useRef<HTMLInputElement>(null);
   const dragging = useRef<number | null>(null);
-  const [removing, setRemoving] = useState<HallFile | null>(null);
+  const [removing, setRemoving] = useState<ResourceFile | null>(null);
   const [pending, setPending] = useState(false);
   const ordered = images.slice().sort((a, b) => a.index - b.index);
-  const filesPath = filesBase ?? `/halls/${hallId}`;
+  const filesPath = filesBase ?? `/resources/${hallId}`;
   const removeSentence = removeBody ?? texts.removeFileBody;
 
   async function add(list: FileList | null) {
@@ -173,7 +173,7 @@ export function HallGallery({
 }
 
 /** Loads the file with the studio session. A plain address cannot send the token. */
-function FilePreview({ file }: { file: HallFile }) {
+function FilePreview({ file }: { file: ResourceFile }) {
   const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {

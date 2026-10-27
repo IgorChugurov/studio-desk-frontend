@@ -74,7 +74,7 @@ describe('proxy', () => {
 
   it('leaves a public file path for the server to forward', () => {
     const response = proxy(
-      requestTo('app.localhost:3001', '/files/halls/1/2.jpg'),
+      requestTo('app.localhost:3001', '/files/resources/1/2.jpg'),
     );
     expect(response.status).toBe(200);
     expect(response.headers.get('x-middleware-rewrite')).toBeNull();

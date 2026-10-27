@@ -1,5 +1,12 @@
 import type { ApiError } from '../api/api-error';
+import type { OrganizationConfig } from '../api/auth-types';
+import type {
+  CatalogResource,
+  ResourceTypeConfig,
+} from '../catalogs/resource-types';
+import { sortedTypes, typeLabel } from '../catalogs/resource-types';
 import {
+  addDays,
   clockInZone,
   dayHeading,
   endsAfterMidnight,
@@ -11,54 +18,75 @@ import {
   instantOf,
   weekDates,
 } from './clock';
-import { formatLabel, hallBusy, texts, trainerBusy } from './texts';
+import {
+  busySentence,
+  formatLabel,
+  selectResource,
+  statusLabel,
+  texts,
+} from './texts';
 
-export interface HallInfo {
+export type ScheduleConfig = OrganizationConfig['scheduleConfig'];
+export type SlotKind = 'service' | 'block';
+export type Audience = 'group' | 'one_person';
+export type SlotFormat = 'offline' | 'offline_and_online' | 'online_only';
+export type Weekday =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday';
+
+export const WEEKDAYS: Weekday[] = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
+
+/** Monday used to turn a template weekday into a clock date. */
+export const TEMPLATE_MONDAY = '2026-10-12';
+
+export interface SlotInfo {
   id: string;
-  name: string;
-  type: 'ordinary' | 'virtual';
-  timeZone: string;
-}
-
-export interface Named {
-  id: string;
-  name: string;
-}
-
-export interface ClassTypeInfo extends Named {
-  defaultDuration: number;
-  trainerIds: string[];
-}
-
-export interface ClassInfo {
-  id: string;
-  hallId: string;
+  kind: SlotKind;
+  placeResourceId: string;
+  resourceIds: string[];
   date: string;
   startTime: string;
   durationMinutes: number;
-  trainerIds: string[];
-  classTypeId: string;
-  audience: 'group' | 'one_person';
-  format: 'offline' | 'offline_and_online' | 'online_only';
+  audience: Audience | null;
+  format: SlotFormat | null;
   places: number | null;
-  cancelled: boolean;
+  note: string | null;
+  blocksAll: boolean;
+  status: string;
+  occupiesResources: boolean;
 }
 
-export interface Draft {
+export interface SlotDraft {
+  kind: SlotKind;
   date: string;
   time: string;
-  hallId: string;
-  classTypeId: string;
+  placeResourceId: string;
+  byType: Record<string, string[]>;
   duration: string;
-  trainerIds: string[];
-  audience: 'group' | 'one_person';
-  format: 'offline' | 'offline_and_online' | 'online_only';
+  audience: Audience;
+  format: SlotFormat;
   places: string;
+  note: string;
+  blocksAll: boolean;
+  status: string;
 }
 
 export interface GridCard {
   key: string;
-  classId: string;
+  slotId: string;
   columnId: string;
   date: string;
   startMin: number;
@@ -66,13 +94,14 @@ export interface GridCard {
   title: string;
   lines: string[];
   past?: boolean;
-  /** Set on a «Cancelled» card. A click opens this list instead of the class. */
+  neutral?: boolean;
   listIds?: string[];
 }
 
 export interface GridStrip {
   key: string;
-  classIds: string[];
+  slotIds: string[];
+  label: string;
   columnId: string;
   date: string;
   startMin: number;
@@ -95,7 +124,6 @@ export function bandHeight(open: boolean, hours: number): number {
   return open ? BAND + hours * HOUR : BAND;
 }
 
-/** Y of a minute from the top of a day column. */
 export function minuteTop(
   minutes: number,
   earlyOpen: boolean,
@@ -116,50 +144,89 @@ export function columnHeight(earlyOpen: boolean, lateOpen: boolean): number {
   return bandHeight(earlyOpen, 8) + 14 * HOUR + bandHeight(lateOpen, 2);
 }
 
+export function columnTypes(types: ResourceTypeConfig[]): ResourceTypeConfig[] {
+  return sortedTypes(types).filter(
+    (type) => type.role === 'place' || type.role === 'resource',
+  );
+}
+
+/** One place plus another resource type opens on that second type. */
+export function defaultColumnTypeId(
+  types: ResourceTypeConfig[],
+  resources: { resourceTypeId: string }[],
+): string {
+  const columns = columnTypes(types);
+  const place = columns.find((type) => type.role === 'place');
+  const placeCount = place
+    ? resources.filter((item) => item.resourceTypeId === place.id).length
+    : 0;
+  const second = columns.find((type) => type.role === 'resource');
+  if (placeCount === 1 && second) return second.id;
+  return columns[0]?.id ?? '';
+}
+
+export function singlePlace(
+  types: ResourceTypeConfig[],
+  resources: CatalogResource[],
+): CatalogResource | null {
+  const place = types.find((type) => type.role === 'place');
+  if (!place) return null;
+  const rows = resources.filter((item) => item.resourceTypeId === place.id);
+  return rows.length === 1 ? (rows[0] ?? null) : null;
+}
+
+export function canWriteSchedule(role: string | null): boolean {
+  return role === 'owner' || role === 'administrator';
+}
+
 export function buildGrid(input: {
-  classes: ClassInfo[];
-  halls: HallInfo[];
-  trainers: Named[];
-  classTypes: ClassTypeInfo[];
+  slots: SlotInfo[];
+  resources: CatalogResource[];
+  types: ResourceTypeConfig[];
   viewZone: string;
-  hallId: string;
-  trainerId: string;
-  classTypeId: string;
-  columns: 'halls' | 'trainers';
+  columnTypeId: string;
+  filters: Record<string, string>;
   monday: string;
+  layout?: 'down' | 'week';
+  contextResourceId?: string;
+  audienceEnabled: boolean;
+  formatEnabled: boolean;
+  language: 'en' | 'sk' | 'uk';
   now?: Date;
 }): GridModel {
   const now = input.now ?? new Date();
   const today = todayIn(input.viewZone, now);
-  const visible = input.classes.filter((item) => {
-    if (input.hallId !== 'all' && item.hallId !== input.hallId) return false;
-    if (
-      input.trainerId !== 'all' &&
-      !item.trainerIds.includes(input.trainerId)
-    ) {
-      return false;
-    }
-    if (input.classTypeId !== 'all' && item.classTypeId !== input.classTypeId) {
-      return false;
-    }
-    return true;
+  const columnType = input.types.find((type) => type.id === input.columnTypeId);
+  const visible = input.slots.filter((slot) =>
+    matchesFilters(slot, input.filters, input.types),
+  );
+  const specific = input.types.some((type) => {
+    const selected = input.filters[type.id];
+    return (
+      selected !== undefined &&
+      selected !== 'all' &&
+      (type.role === 'place' || type.role === 'resource')
+    );
   });
   const kind: GridModel['kind'] =
-    input.hallId === 'all' && input.trainerId === 'all' ? 'down' : 'week';
-  const showTrainers = input.hallId !== 'all' || input.columns === 'halls';
+    input.layout ??
+    (specific || input.contextResourceId !== undefined ? 'week' : 'down');
   const days = weekDates(input.monday).map((date) => ({
     date,
     heading: dayHeading(date),
     today: date === today,
   }));
-  const placed = visible.flatMap((item) =>
-    placeClass(item, input, showTrainers, kind),
+  const placed = visible.flatMap((slot) =>
+    placeSlot(slot, input, columnType, kind, now),
   );
   const night = {
     early: placed.some((item) => item.startMin < 8 * 60),
     late: placed.some((item) => item.endMin > 22 * 60),
   };
-  const hideEmpty = input.classTypeId !== 'all' || input.trainerId !== 'all';
+  const hideEmpty = input.types.some((type) => {
+    const selected = input.filters[type.id];
+    return selected !== undefined && selected !== 'all';
+  });
   const columns =
     kind === 'week'
       ? days
@@ -172,7 +239,7 @@ export function buildGrid(input: {
             label: day.heading,
             today: day.today,
           }))
-      : namedColumns(input, placed, hideEmpty);
+      : resourceColumns(input.resources, columnType, placed, hideEmpty);
 
   const cards: GridCard[] = [];
   const strips: GridStrip[] = [];
@@ -180,38 +247,43 @@ export function buildGrid(input: {
     placed,
     (item) => `${item.columnId}|${item.date}`,
   )) {
-    const live = group.filter((item) => !item.cancelled);
-    const cancelled = group.filter((item) => item.cancelled);
+    const live = group.filter((item) => !item.inactive);
+    const inactive = group.filter((item) => item.inactive);
     cards.push(...live);
-    for (const cluster of clusters(cancelled)) {
-      const startMin = Math.min(...cluster.map((item) => item.startMin));
-      const endMin = Math.max(...cluster.map((item) => item.endMin));
-      const covered = live.some(
-        (item) => item.startMin < endMin && startMin < item.endMin,
-      );
-      const classIds = [...new Set(cluster.map((item) => item.classId))];
-      if (covered) {
-        strips.push({
-          key: `strip-${cluster[0].columnId}-${cluster[0].date}-${startMin}`,
-          classIds,
-          columnId: cluster[0].columnId,
-          date: cluster[0].date,
-          startMin,
-          endMin,
-        });
-      } else {
-        cards.push({
-          key: `cancelled-${cluster[0].columnId}-${cluster[0].date}-${startMin}`,
-          classId: classIds[0],
-          columnId: cluster[0].columnId,
-          date: cluster[0].date,
-          startMin,
-          endMin,
-          title: texts.cancelled,
-          lines: [`${timeLabel(startMin)}–${timeLabel(endMin)}`],
-          listIds: classIds,
-          past: cluster.every((item) => item.past),
-        });
+    for (const status of ['cancelled', 'no_show']) {
+      const rows = inactive.filter((item) => item.status === status);
+      for (const cluster of clusters(rows)) {
+        const startMin = Math.min(...cluster.map((item) => item.startMin));
+        const endMin = Math.max(...cluster.map((item) => item.endMin));
+        const covered = live.some(
+          (item) => item.startMin < endMin && startMin < item.endMin,
+        );
+        const slotIds = [...new Set(cluster.map((item) => item.slotId))];
+        const label = statusLabel(status);
+        if (covered) {
+          strips.push({
+            key: `strip-${cluster[0].columnId}-${cluster[0].date}-${status}-${startMin}`,
+            slotIds,
+            label,
+            columnId: cluster[0].columnId,
+            date: cluster[0].date,
+            startMin,
+            endMin,
+          });
+        } else {
+          cards.push({
+            key: `inactive-${cluster[0].columnId}-${cluster[0].date}-${status}-${startMin}`,
+            slotId: slotIds[0] ?? '',
+            columnId: cluster[0].columnId,
+            date: cluster[0].date,
+            startMin,
+            endMin,
+            title: label,
+            lines: [`${timeLabel(startMin)}–${timeLabel(endMin)}`],
+            listIds: slotIds,
+            past: cluster.every((item) => item.past),
+          });
+        }
       }
     }
   }
@@ -220,98 +292,205 @@ export function buildGrid(input: {
 }
 
 interface Placed extends GridCard {
-  cancelled: boolean;
+  inactive: boolean;
+  status: string;
 }
 
-function placeClass(
-  item: ClassInfo,
+function placeSlot(
+  slot: SlotInfo,
   input: {
-    halls: HallInfo[];
-    trainers: Named[];
-    classTypes: ClassTypeInfo[];
+    resources: CatalogResource[];
+    types: ResourceTypeConfig[];
     viewZone: string;
-    columns: 'halls' | 'trainers';
-    now?: Date;
+    contextResourceId?: string;
+    audienceEnabled: boolean;
+    formatEnabled: boolean;
   },
-  showTrainers: boolean,
+  columnType: ResourceTypeConfig | undefined,
   kind: 'down' | 'week',
+  now: Date,
 ): Placed[] {
-  const hall = input.halls.find((entry) => entry.id === item.hallId);
-  if (!hall) return [];
-  const start = instantOf(item.date, item.startTime, hall.timeZone);
-  const end = new Date(start.getTime() + item.durationMinutes * 60_000);
+  const place = input.resources.find(
+    (item) => item.id === slot.placeResourceId,
+  );
+  const zone = place?.timeZone ?? input.viewZone;
+  const start = instantOf(slot.date, slot.startTime, zone);
+  const end = new Date(start.getTime() + slot.durationMinutes * 60_000);
   const startWall = wallOf(start, input.viewZone);
   const endWall = wallOf(end, input.viewZone);
   const endText =
     endWall.time === '00:00' && endWall.date !== startWall.date
       ? '24:00'
       : endWall.time;
-  const lines = [`${startWall.time}–${endText}`];
-  if (showTrainers) {
-    const names = item.trainerIds
-      .map((id) => input.trainers.find((entry) => entry.id === id)?.name)
-      .filter((name): name is string => name !== undefined);
-    if (names.length > 0) lines.push(names.join(', '));
-  } else {
-    lines.push(hall.name);
-  }
-  if (item.format !== 'offline') lines.push(formatLabel(item.format));
-  if (item.audience === 'one_person') lines.push(texts.onePerson);
-  const title =
-    input.classTypes.find((entry) => entry.id === item.classTypeId)?.name ??
-    item.classTypeId;
+  const lines = detailLines(
+    slot,
+    input,
+    columnType,
+    kind,
+    `${startWall.time}–${endText}`,
+  );
+  const title = slotTitle(slot, input.resources, input.types);
+  const past = hasStarted(slot.date, slot.startTime, zone, now);
   const spans = spansOf(startWall, endWall);
   const cards: Placed[] = [];
   for (const span of spans) {
     const columnIds =
       kind === 'week'
         ? [span.date]
-        : input.columns === 'halls'
-          ? [item.hallId]
-          : item.trainerIds;
+        : columnsFor(slot, input.resources, columnType);
     for (const columnId of columnIds) {
-      cards.push(
-        placed(
-          item,
-          columnId,
-          span.date,
-          span,
-          title,
-          lines,
-          hasStarted(
-            item.date,
-            item.startTime,
-            hall.timeZone,
-            input.now ?? new Date(),
-          ),
-        ),
-      );
+      cards.push({
+        key: `${slot.id}-${columnId}-${span.date}`,
+        slotId: slot.id,
+        columnId,
+        date: span.date,
+        startMin: span.startMin,
+        endMin: span.endMin,
+        title,
+        lines,
+        past,
+        neutral: slot.kind === 'block',
+        inactive: !slot.occupiesResources,
+        status: slot.status,
+      });
     }
   }
   return cards;
 }
 
-function placed(
-  item: ClassInfo,
-  columnId: string,
-  date: string,
-  span: { date: string; startMin: number; endMin: number },
-  title: string,
-  lines: string[],
-  past: boolean,
-): Placed {
-  return {
-    key: `${item.id}-${columnId}-${span.date}`,
-    classId: item.id,
-    columnId,
-    date,
-    startMin: span.startMin,
-    endMin: span.endMin,
-    title,
-    lines,
-    past,
-    cancelled: item.cancelled,
-  };
+function slotTitle(
+  slot: SlotInfo,
+  resources: CatalogResource[],
+  types: ResourceTypeConfig[],
+): string {
+  if (slot.kind === 'block') {
+    const note = slot.note?.trim();
+    return note ? note : texts.blockedTime;
+  }
+  const offeringIds = new Set(
+    types.filter((type) => type.role === 'offering').map((type) => type.id),
+  );
+  const names = slot.resourceIds
+    .map((id) => resources.find((item) => item.id === id))
+    .filter(
+      (item): item is CatalogResource =>
+        item !== undefined && offeringIds.has(item.resourceTypeId),
+    )
+    .map((item) => item.name);
+  return names.length > 0 ? names.join(', ') : texts.service;
+}
+
+function detailLines(
+  slot: SlotInfo,
+  input: {
+    resources: CatalogResource[];
+    types: ResourceTypeConfig[];
+    contextResourceId?: string;
+    audienceEnabled: boolean;
+    formatEnabled: boolean;
+  },
+  columnType: ResourceTypeConfig | undefined,
+  kind: 'down' | 'week',
+  timeLine: string,
+): string[] {
+  const lines = [timeLine];
+  const place = input.resources.find(
+    (item) => item.id === slot.placeResourceId,
+  );
+  const hidePlace = kind === 'down' && columnType?.role === 'place';
+  if (
+    place &&
+    !hidePlace &&
+    place.id !== input.contextResourceId &&
+    slot.kind === 'service'
+  ) {
+    lines.push(place.name);
+  }
+  for (const id of slot.resourceIds) {
+    if (id === input.contextResourceId) continue;
+    const resource = input.resources.find((item) => item.id === id);
+    if (!resource) continue;
+    const type = input.types.find(
+      (item) => item.id === resource.resourceTypeId,
+    );
+    if (type?.role === 'offering') continue;
+    if (kind === 'down' && resource.resourceTypeId === columnType?.id) continue;
+    lines.push(resource.name);
+  }
+  if (slot.blocksAll) lines.push(texts.allResources);
+  if (
+    slot.kind === 'service' &&
+    slot.occupiesResources &&
+    slot.status !== 'planned'
+  ) {
+    lines.push(statusLabel(slot.status));
+  }
+  if (
+    slot.kind === 'service' &&
+    input.formatEnabled &&
+    slot.format &&
+    slot.format !== 'offline'
+  ) {
+    lines.push(formatLabel(slot.format));
+  }
+  if (
+    slot.kind === 'service' &&
+    input.audienceEnabled &&
+    slot.audience === 'one_person'
+  ) {
+    lines.push(texts.onePerson);
+  }
+  return lines;
+}
+
+function columnsFor(
+  slot: SlotInfo,
+  resources: CatalogResource[],
+  columnType: ResourceTypeConfig | undefined,
+): string[] {
+  if (!columnType) return [];
+  if (slot.blocksAll) {
+    return resources
+      .filter((item) => item.resourceTypeId === columnType.id)
+      .map((item) => item.id);
+  }
+  if (columnType.role === 'place') return [slot.placeResourceId];
+  return slot.resourceIds.filter(
+    (id) =>
+      resources.find((item) => item.id === id)?.resourceTypeId ===
+      columnType.id,
+  );
+}
+
+function matchesFilters(
+  slot: SlotInfo,
+  filters: Record<string, string>,
+  types: ResourceTypeConfig[],
+): boolean {
+  if (slot.blocksAll) return true;
+  for (const type of types) {
+    const selected = filters[type.id];
+    if (selected === undefined || selected === 'all') continue;
+    if (type.role === 'place') {
+      if (slot.placeResourceId !== selected) return false;
+    } else if (!slot.resourceIds.includes(selected)) return false;
+  }
+  return true;
+}
+
+function resourceColumns(
+  resources: CatalogResource[],
+  columnType: ResourceTypeConfig | undefined,
+  placed: Placed[],
+  hideEmpty: boolean,
+): { id: string; label: string; today: boolean }[] {
+  if (!columnType) return [];
+  return resources
+    .filter((item) => item.resourceTypeId === columnType.id)
+    .filter(
+      (item) => !hideEmpty || placed.some((card) => card.columnId === item.id),
+    )
+    .map((item) => ({ id: item.id, label: item.name, today: false }));
 }
 
 function spansOf(
@@ -334,30 +513,6 @@ function spansOf(
     });
   }
   return spans;
-}
-
-function namedColumns(
-  input: {
-    halls: HallInfo[];
-    trainers: Named[];
-    columns: 'halls' | 'trainers';
-  },
-  placed: Placed[],
-  hideEmpty: boolean,
-): { id: string; label: string; today: boolean }[] {
-  const source =
-    input.columns === 'halls'
-      ? input.halls.map((hall) => ({ id: hall.id, label: hall.name }))
-      : input.trainers.map((trainer) => ({
-          id: trainer.id,
-          label: trainer.name,
-        }));
-  return source
-    .filter(
-      (column) =>
-        !hideEmpty || placed.some((item) => item.columnId === column.id),
-    )
-    .map((column) => ({ ...column, today: false }));
 }
 
 function groupBy<T>(items: T[], key: (item: T) => string): T[][] {
@@ -383,6 +538,7 @@ function clusters<T extends { startMin: number; endMin: number }>(
       grew = false;
       for (let index = remaining.length - 1; index >= 0; index -= 1) {
         const item = remaining[index];
+        if (!item) continue;
         if (
           group.some(
             (kept) =>
@@ -432,204 +588,295 @@ export function cellPast(
   return hasStarted(date, timeLabel(minutes), viewZone, now);
 }
 
+export function dateOfWeekday(weekday: Weekday): string {
+  return addDays(TEMPLATE_MONDAY, WEEKDAYS.indexOf(weekday));
+}
+
+export function weekdayOfDate(date: string): Weekday {
+  const [year, month, day] = date.split('-').map(Number);
+  const index = new Date(Date.UTC(year, (month ?? 1) - 1, day)).getUTCDay();
+  return WEEKDAYS[index === 0 ? 6 : index - 1] ?? 'monday';
+}
+
 export function emptyDraft(seed: {
   date: string;
   time: string;
-  hallId: string;
-  trainerId: string;
-  hall?: HallInfo;
-}): Draft {
+  placeResourceId: string;
+  columnTypeId?: string;
+  columnResourceId?: string;
+  resources: CatalogResource[];
+  types: ResourceTypeConfig[];
+  audienceEnabled: boolean;
+}): SlotDraft {
+  const only = singlePlace(seed.types, seed.resources);
+  const placeId =
+    seed.placeResourceId ||
+    only?.id ||
+    (seed.columnTypeId &&
+    seed.types.find((type) => type.id === seed.columnTypeId)?.role === 'place'
+      ? (seed.columnResourceId ?? '')
+      : '');
+  const place = seed.resources.find((item) => item.id === placeId);
+  const byType: Record<string, string[]> = {};
+  if (
+    seed.columnResourceId &&
+    seed.columnTypeId &&
+    seed.types.find((type) => type.id === seed.columnTypeId)?.role !== 'place'
+  ) {
+    byType[seed.columnTypeId] = [seed.columnResourceId];
+  }
   return {
+    kind: 'service',
     date: seed.date,
     time: seed.time,
-    hallId: seed.hallId === 'all' ? '' : seed.hallId,
-    classTypeId: '',
-    duration: '',
-    trainerIds: seed.trainerId === 'all' ? [] : [seed.trainerId],
-    audience: 'group',
-    format: seed.hall?.type === 'virtual' ? 'online_only' : 'offline',
+    placeResourceId: placeId,
+    byType,
+    duration: '60',
+    audience: seed.audienceEnabled ? 'group' : 'one_person',
+    format: place?.type === 'virtual' ? 'online_only' : 'offline',
     places: '',
+    note: '',
+    blocksAll: false,
+    status: 'planned',
   };
 }
 
-export function draftFromClass(
-  item: ClassInfo,
-  hallZone: string,
+export function draftFromSlot(
+  slot: SlotInfo,
+  resources: CatalogResource[],
+  types: ResourceTypeConfig[],
   viewZone: string,
-): Draft {
-  const wall = clockInZone(item.date, item.startTime, hallZone, viewZone);
+): SlotDraft {
+  const place = resources.find((item) => item.id === slot.placeResourceId);
+  const zone = place?.timeZone ?? viewZone;
+  const wall = clockInZone(slot.date, slot.startTime, zone, viewZone);
+  const byType: Record<string, string[]> = {};
+  for (const id of slot.resourceIds) {
+    const resource = resources.find((item) => item.id === id);
+    if (!resource) continue;
+    const list = byType[resource.resourceTypeId] ?? [];
+    list.push(id);
+    byType[resource.resourceTypeId] = list;
+  }
   return {
+    kind: slot.kind,
     date: wall.date,
     time: wall.time,
-    hallId: item.hallId,
-    classTypeId: item.classTypeId,
-    duration: String(item.durationMinutes),
-    trainerIds: [...item.trainerIds],
-    audience: item.audience,
-    format: item.format,
-    places: item.places === null ? '' : String(item.places),
+    placeResourceId: slot.placeResourceId,
+    byType,
+    duration: String(slot.durationMinutes),
+    audience: slot.audience ?? 'one_person',
+    format:
+      slot.format ?? (place?.type === 'virtual' ? 'online_only' : 'offline'),
+    places: slot.places === null ? '' : String(slot.places),
+    note: slot.note ?? '',
+    blocksAll: slot.blocksAll,
+    status: slot.status,
   };
+}
+
+export function optionsForType(
+  type: ResourceTypeConfig,
+  resources: CatalogResource[],
+  types: ResourceTypeConfig[],
+  draft: SlotDraft,
+): CatalogResource[] {
+  const ofType = resources.filter((item) => item.resourceTypeId === type.id);
+  if (!type.skills || draft.kind === 'block') return ofType;
+  const offeringIds = types
+    .filter((item) => item.role === 'offering')
+    .flatMap((item) => draft.byType[item.id] ?? []);
+  if (offeringIds.length === 0) return ofType;
+  const linked = ofType.filter((resource) =>
+    offeringIds.some((offeringId) => {
+      const offering = resources.find((item) => item.id === offeringId);
+      return (
+        offering?.relatedResourceIds.includes(resource.id) ||
+        resource.relatedResourceIds.includes(offeringId)
+      );
+    }),
+  );
+  if (linked.length === 0) return ofType;
+  const selected = new Set(draft.byType[type.id] ?? []);
+  return ofType.filter(
+    (resource) =>
+      linked.some((item) => item.id === resource.id) ||
+      selected.has(resource.id),
+  );
+}
+
+export function placesRequired(
+  draft: SlotDraft,
+  place: CatalogResource | undefined,
+  audienceEnabled: boolean,
+): boolean {
+  return (
+    draft.kind === 'service' &&
+    audienceEnabled &&
+    draft.audience === 'group' &&
+    draft.format !== 'online_only' &&
+    place?.type !== 'virtual'
+  );
 }
 
 export function validateDraft(
-  draft: Draft,
-  hall: HallInfo | undefined,
+  draft: SlotDraft,
+  resources: CatalogResource[],
+  types: ResourceTypeConfig[],
   viewZone: string,
-  requireType: boolean,
+  config: ScheduleConfig,
+  language: 'en' | 'sk' | 'uk',
 ): Record<string, string> {
   const errors: Record<string, string> = {};
+  const place = resources.find((item) => item.id === draft.placeResourceId);
   if (!draft.date) errors.date = texts.selectDate;
-  if (!draft.hallId || !hall) errors.hall = texts.selectHall;
-  if (requireType && !draft.classTypeId)
-    errors.classType = texts.selectClassType;
-  if (draft.trainerIds.length === 0) errors.trainers = texts.selectTrainer;
+  if (!draft.placeResourceId || !place) errors.place = texts.selectPlace;
   const duration = Number(draft.duration);
   const durationBad =
     !Number.isInteger(duration) ||
     duration < 5 ||
-    duration > 240 ||
+    duration > 1440 ||
     duration % 5 !== 0;
   if (durationBad) errors.duration = texts.durationError;
   const stepBad =
     !/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.time) ||
     Number(draft.time.slice(3)) % 5 !== 0;
   if (stepBad) errors.time = texts.step;
-  else if (hall && !durationBad) {
-    const hallTime = clockInZone(
+  else if (place?.timeZone && !durationBad && draft.date) {
+    const placeTime = clockInZone(
       draft.date,
       draft.time,
       viewZone,
-      hall.timeZone,
+      place.timeZone,
     );
-    if (Number(hallTime.time.slice(3)) % 5 !== 0) errors.time = texts.step;
-    else if (endsAfterMidnight(hallTime.time, duration))
+    if (Number(placeTime.time.slice(3)) % 5 !== 0) errors.time = texts.step;
+    else if (endsAfterMidnight(placeTime.time, duration))
       errors.time = texts.midnight;
   }
-  if (placesRequired(draft, hall)) {
-    const places = Number(draft.places);
-    if (!Number.isInteger(places) || places < 1)
-      errors.places = texts.placesError;
+  if (draft.kind === 'service') {
+    for (const type of types) {
+      if (type.role === 'place' || !type.required) continue;
+      const chosen = draft.byType[type.id] ?? [];
+      if (chosen.length === 0) {
+        errors[`type:${type.id}`] = selectResource(
+          typeLabel(type, language, 'singular'),
+        );
+      }
+    }
+    if (placesRequired(draft, place, config.audienceEnabled)) {
+      const count = Number(draft.places);
+      if (!Number.isInteger(count) || count < 1)
+        errors.places = texts.placesError;
+    }
   }
   return errors;
 }
 
-export function placesRequired(
-  draft: Draft,
-  hall: HallInfo | undefined,
-): boolean {
-  return (
-    draft.audience === 'group' &&
-    draft.format !== 'online_only' &&
-    hall?.type !== 'virtual'
-  );
-}
-
-export function classBody(
-  draft: Draft,
-  hall: HallInfo,
+export function slotPayload(
+  draft: SlotDraft,
+  place: CatalogResource,
   viewZone: string,
-  includeType: boolean,
+  config: ScheduleConfig,
+  confirmOverlap: boolean,
+  template = false,
 ): Record<string, unknown> {
-  const clock = clockInZone(draft.date, draft.time, viewZone, hall.timeZone);
-  const format = hall.type === 'virtual' ? 'online_only' : draft.format;
+  const zone = place.timeZone ?? viewZone;
+  const clock = clockInZone(draft.date, draft.time, viewZone, zone);
+  const resourceIds =
+    draft.kind === 'block' && draft.blocksAll
+      ? []
+      : Object.values(draft.byType)
+          .flat()
+          .filter((id) => id !== place.id);
   const body: Record<string, unknown> = {
-    hallId: draft.hallId,
-    date: clock.date,
+    kind: draft.kind,
+    placeResourceId: draft.placeResourceId,
+    resourceIds,
     startTime: clock.time,
     durationMinutes: Number(draft.duration),
-    trainerIds: draft.trainerIds,
-    audience: draft.audience,
-    format,
-    places: placesRequired({ ...draft, format }, hall)
-      ? Number(draft.places)
-      : null,
   };
-  if (includeType) body.classTypeId = draft.classTypeId;
+  if (template) body.weekday = weekdayOfDate(clock.date);
+  else body.date = clock.date;
+  if (confirmOverlap) body.confirmOverlap = true;
+  if (draft.kind === 'block') {
+    body.note = draft.note.trim() === '' ? null : draft.note.trim();
+    body.blocksAll = draft.blocksAll;
+    body.audience = null;
+    body.format = null;
+    body.places = null;
+    return body;
+  }
+  const virtual = place.type === 'virtual';
+  const format = !config.formatEnabled
+    ? virtual
+      ? 'online_only'
+      : 'offline'
+    : virtual
+      ? 'online_only'
+      : draft.format;
+  const audience = config.audienceEnabled ? draft.audience : 'one_person';
+  body.audience = audience;
+  body.format = format;
+  body.places =
+    !config.audienceEnabled ||
+    audience === 'one_person' ||
+    format === 'online_only' ||
+    virtual
+      ? null
+      : Number(draft.places);
+  body.note = null;
+  body.blocksAll = false;
   return body;
 }
 
 export function applyApiError(
   error: ApiError,
-  draft: Draft,
-  hall: HallInfo | undefined,
+  draft: SlotDraft,
+  place: CatalogResource | undefined,
   viewZone: string,
 ): { fields: Record<string, string>; alert: string | null } {
-  if (
-    error.code === 'HALL_BUSY' &&
-    error.conflict?.classTypeName &&
-    error.conflict.start &&
-    error.conflict.end
-  ) {
+  if (error.code === 'RESOURCE_BUSY' && error.conflict) {
     return {
       fields: {},
-      alert: hallBusy(
-        error.conflict.classTypeName,
-        error.conflict.start,
-        error.conflict.end,
-      ),
-    };
-  }
-  if (
-    error.code === 'TRAINER_BUSY' &&
-    error.conflict?.trainerName &&
-    error.conflict.hallName
-  ) {
-    return {
-      fields: {},
-      alert: trainerBusy(
-        error.conflict.trainerName,
-        error.conflict.hallName,
-        error.conflict.start,
-        error.conflict.end,
-      ),
+      alert: busySentence(error.conflict) ?? texts.failed,
     };
   }
   const fields: Record<string, string> = {};
   for (const item of error.fieldErrors) {
-    const key = fieldKey(item.field);
-    const text = fieldText(item.field, item.code, draft, hall, viewZone);
-    if (key && text) fields[key] = text;
+    const text = fieldText(item.field, draft, place, viewZone);
+    if (item.field === 'date' && text) fields.date = text;
+    if (item.field === 'startTime' && text) fields.time = text;
+    if (item.field === 'placeResourceId' && text) fields.place = text;
+    if (item.field === 'durationMinutes' && text) fields.duration = text;
+    if (item.field === 'places' && text) fields.places = text;
+    if (item.field === 'resourceIds' && text) fields.resources = text;
   }
   if (Object.keys(fields).length > 0) return { fields, alert: null };
   return { fields: {}, alert: texts.failed };
 }
 
-function fieldKey(field: string): string | null {
-  if (field === 'date') return 'date';
-  if (field === 'startTime') return 'time';
-  if (field === 'hallId') return 'hall';
-  if (field === 'classTypeId') return 'classType';
-  if (field === 'durationMinutes') return 'duration';
-  if (field === 'trainerIds') return 'trainers';
-  if (field === 'places') return 'places';
-  return null;
-}
-
 function fieldText(
   field: string,
-  code: string,
-  draft: Draft,
-  hall: HallInfo | undefined,
+  draft: SlotDraft,
+  place: CatalogResource | undefined,
   viewZone: string,
 ): string | null {
-  if (field === 'date' && code === 'REQUIRED') return texts.selectDate;
-  if (field === 'hallId' && code === 'REQUIRED') return texts.selectHall;
-  if (field === 'classTypeId' && code === 'REQUIRED')
-    return texts.selectClassType;
-  if (field === 'trainerIds' && code === 'REQUIRED') return texts.selectTrainer;
+  if (field === 'date') return texts.selectDate;
+  if (field === 'placeResourceId') return texts.selectPlace;
   if (field === 'durationMinutes') return texts.durationError;
   if (field === 'places') return texts.placesError;
+  if (field === 'resourceIds') return texts.failed;
   if (field === 'startTime') {
-    if (hall && draft.time && draft.duration) {
+    if (place?.timeZone && draft.time && draft.duration && draft.date) {
       const duration = Number(draft.duration);
       if (Number.isInteger(duration)) {
-        const hallTime = clockInZone(
+        const placeTime = clockInZone(
           draft.date,
           draft.time,
           viewZone,
-          hall.timeZone,
+          place.timeZone,
         );
-        if (endsAfterMidnight(hallTime.time, duration)) return texts.midnight;
+        if (endsAfterMidnight(placeTime.time, duration)) return texts.midnight;
       }
     }
     return texts.step;
@@ -637,14 +884,28 @@ function fieldText(
   return null;
 }
 
-export function offeredTrainers(
-  classType: ClassTypeInfo | undefined,
-  trainers: Named[],
-  selected: string[],
-): Named[] {
-  const linked = classType?.trainerIds ?? [];
-  if (linked.length === 0) return trainers;
-  return trainers.filter(
-    (trainer) => linked.includes(trainer.id) || selected.includes(trainer.id),
-  );
+export function viewZoneFor(input: {
+  orgZone: string;
+  resources: CatalogResource[];
+  types: ResourceTypeConfig[];
+  filters: Record<string, string>;
+  embeddedResourceId?: string;
+}): string {
+  if (input.embeddedResourceId) {
+    const resource = input.resources.find(
+      (item) => item.id === input.embeddedResourceId,
+    );
+    const type = input.types.find(
+      (item) => item.id === resource?.resourceTypeId,
+    );
+    if (type?.role === 'place' && resource?.timeZone) return resource.timeZone;
+    return input.orgZone;
+  }
+  const placeType = input.types.find((type) => type.role === 'place');
+  const selected = placeType ? input.filters[placeType.id] : undefined;
+  if (selected && selected !== 'all') {
+    const place = input.resources.find((item) => item.id === selected);
+    if (place?.timeZone) return place.timeZone;
+  }
+  return input.orgZone;
 }

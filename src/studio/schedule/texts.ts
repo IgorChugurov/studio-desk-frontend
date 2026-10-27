@@ -1,12 +1,9 @@
 /** Fixed texts from schedule.md. Inserted as written, in English. */
 
 export const texts = {
-  halls: 'Halls',
-  trainers: 'Trainers',
+  schedule: 'Schedule',
+  templates: 'Templates',
   all: 'All',
-  hall: 'Hall',
-  trainer: 'Trainer',
-  classType: 'Class type',
   timeZone: 'Time zone',
   previousWeek: 'Previous week',
   nextWeek: 'Next week',
@@ -15,12 +12,14 @@ export const texts = {
   earlyShort: '00–08',
   lateShort: '22–24',
   today: 'Today',
-  newClass: 'New class',
+  service: 'Service',
+  blockTime: 'Block time',
+  blockedTime: 'Blocked time',
   date: 'Date',
+  weekday: 'Day',
   startTime: 'Start time',
   duration: 'Duration',
-  trainersField: 'Trainers',
-  audience: 'Group / One person',
+  audience: 'Audience & places',
   group: 'Group',
   onePersonOption: 'One person',
   onePerson: 'one person',
@@ -29,35 +28,72 @@ export const texts = {
   offline: 'Offline',
   offlineAndOnline: 'Offline and online',
   onlineOnly: 'Online only',
+  blocksAll: 'Block entire organization',
+  allResources: 'All resources',
+  note: 'Reason / Note',
+  status: 'Status',
+  planned: 'Planned',
+  confirmed: 'Confirmed',
+  inProgress: 'In progress',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+  noShow: 'No-show',
   save: 'Save',
+  saveAnyway: 'Save anyway',
   back: 'Back',
-  cancelClass: 'Cancel class',
+  cancelSlot: 'Cancel slot',
   replace: 'Replace',
   delete: 'Delete',
   restore: 'Restore',
-  cancelled: 'Cancelled',
-  cancelTitle: 'Cancel class?',
-  cancelBody: 'The class stays in the schedule marked as cancelled',
-  deleteTitle: 'Delete class?',
-  deleteBody: 'The class will be removed from the schedule',
+  cancelTitle: 'Cancel slot?',
+  cancelBody: 'The slot stays in the schedule marked as cancelled',
+  deleteTitle: 'Delete slot?',
+  deleteBody: 'The slot will be removed from the schedule',
   selectDate: 'Select a date',
-  selectHall: 'Select a hall',
-  selectClassType: 'Select a class type',
-  selectTrainer: 'Select at least one trainer',
+  selectPlace: 'Select a place',
   step: 'Enter a time in steps of 5 minutes',
-  durationError: 'Enter a duration from 5 to 240 minutes in steps of 5',
+  durationError: 'Enter a duration from 5 to 1440 minutes in steps of 5',
   placesError: 'Enter the number of places',
-  midnight: 'A class must end by midnight',
-  added: 'Class added',
-  updated: 'Class updated',
-  classCancelled: 'Class cancelled',
-  classRestored: 'Class restored',
-  classDeleted: 'Class deleted',
-  classReplaced: 'Class replaced',
+  midnight: 'A slot must end by midnight',
+  added: 'Slot added',
+  updated: 'Slot updated',
+  slotCancelled: 'Slot cancelled',
+  slotRestored: 'Slot restored',
+  slotDeleted: 'Slot deleted',
+  slotReplaced: 'Slot replaced',
   failed: 'Something went wrong. Try again',
   search: 'Search',
   noOptions: 'No options found',
   allSelected: 'All selected',
+  applyTemplate: 'Apply template',
+  clearWeeks: 'Clear weeks',
+  replaceWithTemplate: 'Replace with template',
+  conflicts: 'Conflicts',
+  keepExisting: 'Keep existing',
+  applyNew: 'Apply new',
+  templatePlaces: 'Template places',
+  allPlaces: 'All places',
+  newTemplate: 'New template',
+  templateAdded: 'Template added',
+  templateUpdated: 'Template updated',
+  templateDeleted: 'Template deleted',
+  deleteTemplateTitle: 'Delete template?',
+  deleteTemplateBody: 'Slots already on the schedule stay as they are',
+  noTemplates: 'No templates yet',
+  noTemplatesFound: 'No templates found',
+  searchHint: "Change the search term to find what you're looking for.",
+  resetSearch: 'Reset search',
+  name: 'Name',
+  enterName: 'Enter a name',
+  addTemplate: 'Add template',
+  edit: 'Edit',
+  monday: 'Monday',
+  tuesday: 'Tuesday',
+  wednesday: 'Wednesday',
+  thursday: 'Thursday',
+  friday: 'Friday',
+  saturday: 'Saturday',
+  sunday: 'Sunday',
 } as const;
 
 export function formatLabel(
@@ -68,19 +104,35 @@ export function formatLabel(
   return texts.offline;
 }
 
-export function hallBusy(
-  classType: string,
-  start: string,
-  end: string,
-): string {
-  return `The hall is busy at this time: ${classType} ${start}–${end}`;
+export function statusLabel(status: string): string {
+  if (status === 'confirmed') return texts.confirmed;
+  if (status === 'in_progress') return texts.inProgress;
+  if (status === 'completed') return texts.completed;
+  if (status === 'cancelled') return texts.cancelled;
+  if (status === 'no_show') return texts.noShow;
+  return texts.planned;
 }
 
-export function trainerBusy(
-  trainer: string,
-  hall: string,
-  start: string,
-  end: string,
-): string {
-  return `${trainer} has another class at this time: ${hall} ${start}–${end}`;
+export function busySentence(input: {
+  resourceName?: string;
+  title?: string;
+  start: string;
+  end: string;
+}): string | null {
+  if (!input.resourceName || !input.title) return null;
+  return `${input.resourceName} is busy at this time: ${input.title} ${input.start}–${input.end}`;
+}
+
+export function selectResource(singular: string): string {
+  return `Select a ${singular}`;
+}
+
+export function weekdayLabel(weekday: string): string {
+  if (weekday === 'monday') return texts.monday;
+  if (weekday === 'tuesday') return texts.tuesday;
+  if (weekday === 'wednesday') return texts.wednesday;
+  if (weekday === 'thursday') return texts.thursday;
+  if (weekday === 'friday') return texts.friday;
+  if (weekday === 'saturday') return texts.saturday;
+  return texts.sunday;
 }

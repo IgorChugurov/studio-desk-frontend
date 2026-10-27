@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  act,
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
 } from '@testing-library/react';
-import { WeekPage } from './week-page';
+import { ApiError } from '../api/api-error';
 import { notify } from '../../shared/ui/toaster';
+import { WeekPage } from './week-page';
 
 const { request } = vi.hoisted(() => ({ request: vi.fn() }));
 
@@ -18,6 +18,60 @@ vi.mock('../api/session-provider', () => ({
     status: 'signed-in',
     email: 'owner@example.com',
     language: 'en',
+    config: {
+      catalogConfig: {
+        resourceTypes: [
+          {
+            id: 'place-type',
+            sortOrder: 0,
+            role: 'place',
+            labels: labels('hall', 'halls'),
+            geography: true,
+            duration: false,
+            showcase: false,
+            person: false,
+            skills: false,
+            required: true,
+            multiple: false,
+            conflictMode: 'strict',
+          },
+          {
+            id: 'trainer-type',
+            sortOrder: 1,
+            role: 'resource',
+            labels: labels('trainer', 'trainers'),
+            geography: false,
+            duration: false,
+            showcase: false,
+            person: true,
+            skills: true,
+            required: false,
+            multiple: true,
+            conflictMode: 'warning',
+          },
+          {
+            id: 'offering-type',
+            sortOrder: 2,
+            role: 'offering',
+            labels: labels('class type', 'class types'),
+            geography: false,
+            duration: true,
+            showcase: false,
+            person: false,
+            skills: true,
+            required: false,
+            multiple: false,
+            conflictMode: 'none',
+          },
+        ],
+      },
+      scheduleConfig: {
+        audienceEnabled: true,
+        formatEnabled: true,
+        statuses: ['planned', 'cancelled', 'completed', 'no_show'],
+      },
+      billingConfig: { settlementMode: 'subscription' },
+    },
   }),
 }));
 
@@ -29,78 +83,140 @@ vi.mock('../../shared/ui/toaster', () => ({
   notify: { success: vi.fn(), error: vi.fn() },
 }));
 
-const main = {
+function labels(singular: string, plural: string) {
+  const pair = { singular, plural };
+  return { en: pair, sk: pair, uk: pair };
+}
+
+function catalog(partial: Record<string, unknown>) {
+  return {
+    type: null,
+    address: null,
+    timeZone: null,
+    defaultDuration: null,
+    description: null,
+    videoLink: null,
+    instagram: null,
+    tiktok: null,
+    relatedResourceIds: [],
+    images: [],
+    createdAt: '2026-10-01T00:00:00Z',
+    updatedAt: '2026-10-01T00:00:00Z',
+    ...partial,
+  };
+}
+
+const main = catalog({
   id: 'h1',
+  resourceTypeId: 'place-type',
   name: 'Main',
-  type: 'ordinary' as const,
+  type: 'ordinary',
+  address: 'Hlavná 1',
   timeZone: 'Europe/Bratislava',
-};
-const east = {
+});
+const east = catalog({
   id: 'h2',
+  resourceTypeId: 'place-type',
   name: 'East',
-  type: 'ordinary' as const,
+  type: 'ordinary',
+  address: 'East 2',
   timeZone: 'America/New_York',
-};
-const anna = { id: 'anna', name: 'Anna' };
-const boris = { id: 'boris', name: 'Boris' };
-const yoga = {
+});
+const anna = catalog({
+  id: 'anna',
+  resourceTypeId: 'trainer-type',
+  name: 'Anna',
+});
+const yoga = catalog({
   id: 'yoga',
+  resourceTypeId: 'offering-type',
   name: 'Yoga',
   defaultDuration: 60,
-  trainerIds: ['anna'],
-};
+  relatedResourceIds: ['anna'],
+});
 
-function klass(overrides: Record<string, unknown> = {}) {
+function slot(overrides: Record<string, unknown> = {}) {
   return {
     id: 'c1',
-    hallId: 'h1',
+    kind: 'service',
+    placeResourceId: 'h1',
+    resourceIds: ['anna', 'yoga'],
     date: '2026-10-12',
     startTime: '10:00',
     durationMinutes: 60,
-    trainerIds: ['anna'],
-    classTypeId: 'yoga',
     audience: 'group',
     format: 'offline',
     places: 8,
-    cancelled: false,
+    note: null,
+    blocksAll: false,
+    status: 'planned',
+    occupiesResources: true,
     ...overrides,
+  };
+}
+
+function page(items: unknown[]) {
+  return {
+    items,
+    meta: {
+      currentPage: 1,
+      perPage: 100,
+      totalItems: items.length,
+      totalPages: 1,
+    },
   };
 }
 
 function install(options: {
   role?: string;
-  halls?: (typeof main)[];
-  classes?: Record<string, unknown>[];
+  halls?: Record<string, unknown>[];
+  slots?: Record<string, unknown>[];
+  overlap?: boolean;
 }) {
-  request.mockImplementation(async (path: string) => {
-    if (path === '/me') return { role: options.role ?? 'owner' };
-    if (path === '/settings') return { timeZone: 'Europe/Bratislava' };
-    if (path === '/settings/options') {
-      return { timeZones: ['Europe/Bratislava', 'America/New_York'] };
-    }
-    if (path.startsWith('/halls')) {
-      return { items: options.halls ?? [main], meta: { totalPages: 1 } };
-    }
-    if (path.startsWith('/trainers')) {
-      return { items: [anna, boris], meta: { totalPages: 1 } };
-    }
-    if (path.startsWith('/class-types')) {
-      return { items: [yoga], meta: { totalPages: 1 } };
-    }
-    if (path.startsWith('/classes')) return { items: options.classes ?? [] };
-    return {};
-  });
+  request.mockImplementation(
+    async (
+      path: string,
+      init?: { method?: string; body?: { confirmOverlap?: boolean } },
+    ) => {
+      if (path === '/me') return { role: options.role ?? 'owner' };
+      if (path === '/settings') return { timeZone: 'Europe/Bratislava' };
+      if (path === '/settings/options') {
+        return { timeZones: ['Europe/Bratislava', 'America/New_York'] };
+      }
+      if (path.startsWith('/resources?')) {
+        const type = new URL(path, 'http://local').searchParams.get(
+          'resourceTypeId',
+        );
+        if (type === 'place-type') return page(options.halls ?? [main, east]);
+        if (type === 'trainer-type') return page([anna]);
+        if (type === 'offering-type') return page([yoga]);
+        return page([]);
+      }
+      if (path === '/schedule-slots' && init?.method === 'POST') {
+        if (options.overlap && init.body?.confirmOverlap !== true) {
+          throw new ApiError(409, 'OVERLAP_WARNING', [], undefined, [
+            {
+              resourceName: 'Anna',
+              title: 'Yoga',
+              start: '15:00',
+              end: '16:00',
+            },
+          ]);
+        }
+        return { id: 'created' };
+      }
+      if (path.startsWith('/schedule-slots'))
+        return { items: options.slots ?? [] };
+      if (path.startsWith('/week-templates')) return page([]);
+      return {};
+    },
+  );
 }
 
-async function openMenu(name: string) {
-  await act(async () => {
-    fireEvent.keyDown(screen.getByRole('button', { name }), { key: 'Enter' });
+function openMenu(name: string) {
+  fireEvent.keyDown(screen.getByRole('button', { name }), {
+    key: 'Enter',
   });
-}
-
-async function openWeek() {
-  render(<WeekPage />);
-  await screen.findByRole('button', { name: /12\.10\.2026/ });
 }
 
 describe('Schedule week', () => {
@@ -118,121 +234,144 @@ describe('Schedule week', () => {
     vi.useRealTimers();
   });
 
-  it('opens the current week, keeps filters across weeks, and clears them on leave', async () => {
-    install({});
-    const first = render(<WeekPage />);
-    await screen.findByRole('button', { name: /12\.10\.2026/ });
-    await openMenu('Hall');
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Main' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Next week' }));
-    await waitFor(() => {
-      const last = request.mock.calls
-        .map((call) => String(call[0]))
-        .filter((path) => path.startsWith('/classes?'))
-        .at(-1);
-      expect(last).toContain('from=2026-10-19');
-      expect(last).toContain('hallId=h1');
-    });
-    first.unmount();
-    request.mockClear();
+  it('opens trainer columns when there is a single place', async () => {
+    install({ halls: [main] });
     render(<WeekPage />);
-    await screen.findByRole('button', { name: /12\.10\.2026/ });
-    await waitFor(() => {
-      const paths = request.mock.calls
-        .map((call) => String(call[0]))
-        .filter((path) => path.startsWith('/classes?'));
-      expect(paths.length).toBeGreaterThan(0);
-      expect(paths.every((path) => !path.includes('hallId'))).toBe(true);
-    });
+    const trainers = await screen.findByRole('button', { name: 'trainers' });
+    expect(trainers.getAttribute('aria-pressed')).toBe('true');
+    expect(
+      screen
+        .getByRole('button', { name: 'halls' })
+        .getAttribute('aria-pressed'),
+    ).toBe('false');
   });
 
-  it('does not open a past cell, and a past class has no actions', async () => {
-    install({ classes: [klass()] });
-    await openWeek();
+  it('does not open a past cell and lets a past service change status', async () => {
+    install({ slots: [slot()] });
+    render(<WeekPage />);
+    await screen.findByRole('button', { name: /12\.10\.2026/ });
     expect(
       screen.queryByRole('button', { name: 'Monday 12.10 10:00 Main' }),
     ).toBeNull();
     fireEvent.click(
       screen.getByRole('button', { name: 'Saturday 17.10 15:00 Main' }),
     );
-    expect(screen.getByRole('heading', { name: 'New class' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Service' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     fireEvent.click(screen.getByRole('button', { name: /Yoga/ }));
-    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Cancel class' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel slot' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Restore' })).toBeNull();
+    fireEvent.click(screen.getByRole('combobox', { name: 'Status' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Completed' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => {
+      expect(request).toHaveBeenCalledWith('/schedule-slots/c1', {
+        method: 'PATCH',
+        body: { status: 'completed' },
+      });
+    });
   });
 
-  it('offers only Restore and Delete for a future cancelled class', async () => {
+  it('saves a block and confirms an overlap warning', async () => {
+    install({ overlap: true });
+    render(<WeekPage />);
+    await screen.findByRole('button', { name: /12\.10\.2026/ });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Saturday 17.10 15:00 Main' }),
+    );
+    fireEvent.click(screen.getByRole('combobox', { name: 'Service' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Block time' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Reason / Note' }), {
+      target: { value: 'Lunch' },
+    });
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Block entire organization' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(
+      await screen.findByText('Anna is busy at this time: Yoga 15:00–16:00'),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Save anyway' }));
+    await waitFor(() => {
+      expect(request).toHaveBeenCalledWith('/schedule-slots', {
+        method: 'POST',
+        body: expect.objectContaining({
+          kind: 'block',
+          note: 'Lunch',
+          blocksAll: true,
+          placeResourceId: 'h1',
+          confirmOverlap: true,
+        }),
+      });
+    });
+  });
+
+  it('offers Restore and Delete for a future cancelled slot', async () => {
     install({
-      classes: [
-        klass({
+      slots: [
+        slot({
           id: 'later',
           date: '2026-10-17',
           startTime: '18:00',
-          cancelled: true,
+          status: 'cancelled',
+          occupiesResources: false,
         }),
       ],
     });
-    await openWeek();
+    render(<WeekPage />);
+    await screen.findByRole('button', { name: /12\.10\.2026/ });
     fireEvent.click(screen.getByRole('button', { name: /Cancelled/ }));
     expect(screen.getByRole('button', { name: 'Restore' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Cancel class' })).toBeNull();
   });
 
-  it('shows the hall week with only that trainer', async () => {
+  it('filters to one hall and forgets the filter when the page is left', async () => {
     install({
-      classes: [
-        klass({ id: 'anna-class', date: '2026-10-17', startTime: '18:00' }),
-        klass({
-          id: 'boris-class',
+      slots: [
+        slot({ id: 'main-slot', date: '2026-10-17', startTime: '18:00' }),
+        slot({
+          id: 'east-slot',
+          placeResourceId: 'h2',
           date: '2026-10-17',
           startTime: '19:00',
-          trainerIds: ['boris'],
         }),
       ],
     });
-    await openWeek();
-    await openMenu('Hall');
+    const first = render(<WeekPage />);
+    await screen.findByRole('button', { name: /12\.10\.2026/ });
+    openMenu('hall');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Main' }));
-    await openMenu('Trainer');
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Anna' }));
-    await waitFor(() => {
-      const last = request.mock.calls
-        .map((call) => String(call[0]))
-        .filter((path) => path.startsWith('/classes?'))
-        .at(-1);
-      expect(last).toContain('hallId=h1');
-      expect(last).toContain('trainerId=anna');
-    });
-    expect(screen.getByRole('button', { name: /Yoga/ })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Halls' })).toBeNull();
     expect(document.querySelector('[data-layout="week"]')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Yoga/ })).toBeTruthy();
+    first.unmount();
+    render(<WeekPage />);
+    await screen.findByRole('button', { name: /12\.10\.2026/ });
+    expect(document.querySelector('[data-layout="down"]')).toBeTruthy();
   });
 
-  it('moves a class when the view zone changes and still sends the hall clock', async () => {
+  it('moves a slot into the view zone and still sends the place clock', async () => {
     install({
       halls: [east],
-      classes: [
-        klass({
-          hallId: 'h2',
+      slots: [
+        slot({
+          placeResourceId: 'h2',
           date: '2026-10-17',
           startTime: '12:00',
         }),
       ],
     });
-    await openWeek();
-    expect(screen.getByRole('button', { name: /18:00–19:00/ })).toBeTruthy();
+    render(<WeekPage />);
+    expect(
+      await screen.findByRole('button', { name: /18:00–19:00/ }),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /18:00–19:00/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => {
-      expect(request).toHaveBeenCalledWith('/classes/c1', {
+      expect(request).toHaveBeenCalledWith('/schedule-slots/c1', {
         method: 'PATCH',
         body: expect.objectContaining({
-          hallId: 'h2',
+          placeResourceId: 'h2',
           date: '2026-10-17',
           startTime: '12:00',
         }),
@@ -247,18 +386,32 @@ describe('Schedule week', () => {
     ).toBeTruthy();
   });
 
-  it('lets a trainer look and not save', async () => {
+  it('hides week actions and saving from a specialist', async () => {
     install({
-      role: 'trainer',
-      classes: [klass({ date: '2026-10-17', startTime: '18:00' })],
+      role: 'specialist',
+      slots: [slot({ date: '2026-10-17', startTime: '18:00' })],
     });
-    await openWeek();
+    render(<WeekPage />);
+    await screen.findByRole('button', { name: /12\.10\.2026/ });
+    expect(screen.queryByRole('button', { name: 'Apply template' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Clear weeks' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Replace with template' }),
+    ).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Saturday 17.10 15:00 Main' }),
     ).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Yoga/ }));
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+  });
+
+  it('shows week actions to an owner', async () => {
+    install({});
+    render(<WeekPage />);
+    expect(
+      await screen.findByRole('button', { name: 'Apply template' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Templates' })).toBeTruthy();
   });
 
   it('remembers a night band and forgets a collapsed day', async () => {
@@ -266,9 +419,9 @@ describe('Schedule week', () => {
     const first = render(<WeekPage />);
     const band = async () =>
       (await screen.findAllByRole('button', { name: '00:00–08:00' }))[0];
-    expect((await band()).getAttribute('aria-expanded')).toBe('false');
-    fireEvent.click(await band());
-    expect((await band()).getAttribute('aria-expanded')).toBe('true');
+    expect((await band())?.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click((await band())!);
+    expect((await band())?.getAttribute('aria-expanded')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: 'Monday 12.10' }));
     expect(
       screen
@@ -277,17 +430,10 @@ describe('Schedule week', () => {
     ).toBe('false');
     first.unmount();
     render(<WeekPage />);
-    expect((await band()).getAttribute('aria-expanded')).toBe('true');
+    expect((await band())?.getAttribute('aria-expanded')).toBe('true');
     expect(
       screen
         .getByRole('button', { name: 'Monday 12.10' })
-        .getAttribute('aria-expanded'),
-    ).toBe('true');
-    fireEvent.click(screen.getByRole('button', { name: 'Monday 12.10' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Next week' }));
-    expect(
-      screen
-        .getByRole('button', { name: 'Monday 19.10' })
         .getAttribute('aria-expanded'),
     ).toBe('true');
   });

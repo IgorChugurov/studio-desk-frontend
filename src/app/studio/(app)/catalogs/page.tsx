@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
-import { HallList } from '../../../../studio/catalogs/hall-list';
+import { ResourceList } from '../../../../studio/catalogs/resource-list';
 
-export default function HallsPage() {
+export default function CatalogsPage() {
   return (
     <Suspense>
-      <HallList />
+      <ResourceList />
     </Suspense>
   );
 }
