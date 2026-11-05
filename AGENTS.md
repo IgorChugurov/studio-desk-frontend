@@ -1,20 +1,8 @@
 # StudioDesk frontend
 
-Workflow & approval rules: `studio-desk-docs/00-governance/feature-workflow.md` and `studio-desk-docs/00-governance/approval-rules.md`.
-Design kit, tokens, `src/shared/ui/` components, page types, and scroll rules: `studio-desk-docs/02-design/ui-kit-and-pages.md` and `studio-desk-docs/02-design/flow-design.md`.
-Product topics & briefs: `studio-desk-docs/01-product/` (`platform-admin/`, `organization-admin/`).
-Canon of the API: `studio-desk-docs/03-architecture/`.
+Canon wins. Workspace rules: `studio-desk-docs/.cursor/rules/00-workspace-core.mdc`.
 Structure and commands: `README.md`.
-
-## Before a commit
-
-CI on every push runs `pnpm lint` and `pnpm format:check` before `pnpm test`. If either fails, the job stops and the server is not updated. `pnpm test` alone does not catch them. Run both, and fix what they print, before committing.
-
-On 2026-10-08 two pushes failed this way:
-
-- `pnpm lint` (`oxlint --type-aware`) failed on `String(response.body)` in a test. `body` is not always a string; `String` on an object becomes `[object Object]`. Read it only when it is a string.
-- The same lint failed on `setState` called directly inside `useEffect` (`react(set-state-in-effect)`). That starts another render from the effect. Set state from the finished request, or defer it. Do not call it synchronously in the effect.
-- `pnpm format:check` then failed because three new test files were not formatted. Run `pnpm exec prettier --write` on files you added or edited.
+Repository checks: `.cursor/rules/project.mdc`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
