@@ -1,8 +1,9 @@
 # StudioDesk frontend
 
-Brief of the current surface: `studio-desk-docs/01-product/platform-admin/frontend-brief.md`.
+Workflow & approval rules: `studio-desk-docs/00-governance/feature-workflow.md` and `studio-desk-docs/00-governance/approval-rules.md`.
+Design kit, tokens, `src/shared/ui/` components, page types, and scroll rules: `studio-desk-docs/02-design/ui-kit-and-pages.md` and `studio-desk-docs/02-design/flow-design.md`.
+Product topics & briefs: `studio-desk-docs/01-product/` (`platform-admin/`, `organization-admin/`).
 Canon of the API: `studio-desk-docs/03-architecture/`.
-Topic: `studio-desk-docs/01-product/platform-admin/`.
 Structure and commands: `README.md`.
 
 ## Before a commit
