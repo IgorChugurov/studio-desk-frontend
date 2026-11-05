@@ -78,3 +78,104 @@ export const CONFIG_EDITOR_TEXTS: ConfigEditorTexts = {
   enterAllLabels: 'Enter all language labels',
   roleLabel: 'Role',
 };
+
+const CONFIG_EDITOR_TEXTS_SK: ConfigEditorTexts = {
+  scheduleBilling: 'Konfigurácia rozvrhu a vyúčtovania',
+  audiencePlaces: 'Kapacita (skupina / jedna osoba)',
+  formatMode: 'Formát (offline / online)',
+  statuses: 'Stavy',
+  status: {
+    planned: 'Plánované',
+    confirmed: 'Potvrdené',
+    in_progress: 'Prebieha',
+    completed: 'Dokončené',
+    cancelled: 'Zrušené',
+    no_show: 'Nedostavenie',
+  },
+  settlementMode: 'Spôsob vyúčtovania',
+  settlement: {
+    subscription: 'Permanentka',
+    direct_check: 'Priama platba',
+    external_order: 'Externý doklad',
+  },
+  catalogResourceTypes: 'Typy zdrojov katalógu',
+  addResourceType: 'Pridať typ zdroja',
+  role: {
+    place: 'Miesto (časová kotva)',
+    resource: 'Zdroj (špecialista / vybavenie)',
+    offering: 'Služba (práca / typ hodiny)',
+  },
+  singular: 'Jednotné číslo',
+  plural: 'Množné číslo',
+  geography: 'Geografia',
+  duration: 'Trvanie',
+  showcase: 'Vitrína',
+  person: 'Osoba',
+  skills: 'Zručnosti',
+  requiredOnSlot: 'Povinné v slote',
+  allowMultiple: 'Viac hodnôt v jednom slote',
+  conflictRule: 'Pravidlo prekrývania',
+  conflict: {
+    strict: 'Prísne — zakázať prekrytie',
+    warning: 'Upozornenie — potvrdiť prekrytie',
+    none: 'Žiadne',
+  },
+  remove: 'Odstrániť',
+  enterAllLabels: 'Zadajte názvy vo všetkých jazykoch',
+  roleLabel: 'Rola',
+};
+
+const CONFIG_EDITOR_TEXTS_UK: ConfigEditorTexts = {
+  scheduleBilling: 'Налаштування розкладу й розрахунку',
+  audiencePlaces: 'Місткість (група / одна особа)',
+  formatMode: 'Формат (офлайн / онлайн)',
+  statuses: 'Статуси',
+  status: {
+    planned: 'Заплановано',
+    confirmed: 'Підтверджено',
+    in_progress: 'Триває',
+    completed: 'Завершено',
+    cancelled: 'Скасовано',
+    no_show: 'Неявка',
+  },
+  settlementMode: 'Спосіб розрахунку',
+  settlement: {
+    subscription: 'Абонемент',
+    direct_check: 'Прямий чек',
+    external_order: 'Зовнішній документ',
+  },
+  catalogResourceTypes: 'Види ресурсів каталогу',
+  addResourceType: 'Додати вид ресурсу',
+  role: {
+    place: 'Місце (якір часу)',
+    resource: 'Ресурс (спеціаліст / обладнання)',
+    offering: 'Послуга (робота / вид заняття)',
+  },
+  singular: 'Однина',
+  plural: 'Множина',
+  geography: 'Географія',
+  duration: 'Тривалість',
+  showcase: 'Вітрина',
+  person: 'Людина',
+  skills: 'Навички',
+  requiredOnSlot: 'Обовʼязково в слоті',
+  allowMultiple: 'Кілька значень на один слот',
+  conflictRule: 'Правило перетину',
+  conflict: {
+    strict: 'Жорстко — заборонити перетин',
+    warning: 'Попередження — підтвердити перетин',
+    none: 'Без перевірки',
+  },
+  remove: 'Видалити',
+  enterAllLabels: 'Заповніть назви всіма мовами',
+  roleLabel: 'Роль',
+};
+
+/** Organization settings follow the signed-in person's interface language. */
+export function configEditorTexts(
+  language: 'en' | 'sk' | 'uk',
+): ConfigEditorTexts {
+  if (language === 'sk') return CONFIG_EDITOR_TEXTS_SK;
+  if (language === 'uk') return CONFIG_EDITOR_TEXTS_UK;
+  return CONFIG_EDITOR_TEXTS;
+}

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { ResourceTypeCards } from '../../shared/config-editor/resource-type-cards';
 import { ScheduleBillingFields } from '../../shared/config-editor/schedule-billing';
-import { CONFIG_EDITOR_TEXTS } from '../../shared/config-editor/texts';
+import { configEditorTexts } from '../../shared/config-editor/texts';
 import {
   addedDraft,
   labelsComplete,
@@ -127,6 +127,7 @@ export function SettingsForm() {
   const language: Lang =
     session.status === 'signed-in' ? session.language : 'en';
   const texts = copy(language);
+  const editorTexts = configEditorTexts(language);
   useCrumbs([{ label: texts.studioSettings }]);
 
   const [loaded, setLoaded] = useState<Draft | null>(null);
@@ -179,7 +180,7 @@ export function SettingsForm() {
   async function save() {
     if (!values || !loaded || pending || !changed) return;
     if (!labelsComplete(values.resourceTypes)) {
-      setLabelError(CONFIG_EDITOR_TEXTS.enterAllLabels);
+      setLabelError(editorTexts.enterAllLabels);
       return;
     }
     const body: Record<string, unknown> = {};
@@ -298,13 +299,13 @@ export function SettingsForm() {
         <ScheduleBillingFields
           schedule={values.schedule}
           billing={values.billing}
-          texts={CONFIG_EDITOR_TEXTS}
+          texts={editorTexts}
           onSchedule={(next) => setValues({ ...values, schedule: next })}
           onBilling={(billing) => setValues({ ...values, billing })}
         />
         <ResourceTypeCards
           types={values.resourceTypes}
-          texts={CONFIG_EDITOR_TEXTS}
+          texts={editorTexts}
           labelError={labelError}
           onChange={(resourceTypes) => {
             setLabelError(null);

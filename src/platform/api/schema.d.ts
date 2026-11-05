@@ -68,7 +68,55 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/platform/studios': {
+  '/api/platform/presets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['PresetsController_list'];
+    put?: never;
+    post: operations['PresetsController_create'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/platform/presets/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['PresetsController_get'];
+    put?: never;
+    post?: never;
+    delete: operations['PresetsController_remove'];
+    options?: never;
+    head?: never;
+    patch: operations['PresetsController_update'];
+    trace?: never;
+  };
+  '/api/platform/presets/{id}/duplicate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['PresetsController_duplicate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/platform/organizations': {
     parameters: {
       query?: never;
       header?: never;
@@ -84,7 +132,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/platform/studios/{id}': {
+  '/api/platform/organizations/{id}': {
     parameters: {
       query?: never;
       header?: never;
@@ -98,6 +146,54 @@ export interface paths {
     options?: never;
     head?: never;
     patch: operations['StudiosController_update'];
+    trace?: never;
+  };
+  '/api/platform/organizations/{id}/deactivate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['StudiosController_deactivate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/platform/organizations/{id}/activate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['StudiosController_activate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/platform/organizations/{id}/impersonate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['StudiosController_impersonate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   '/api/platform/version': {
@@ -254,6 +350,144 @@ export interface operations {
       };
     };
   };
+  PresetsController_list: {
+    parameters: {
+      query?: {
+        currentPage?: number;
+        perPage?: number;
+        search?: string;
+        sortBy?: 'createdAt' | 'name';
+        order?: 'ASC' | 'DESC';
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  PresetsController_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name: string;
+          description?: null | string;
+          sections: unknown;
+          catalogConfig: unknown;
+          scheduleConfig: unknown;
+          billingConfig: unknown;
+        };
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  PresetsController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  PresetsController_remove: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  PresetsController_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name?: string;
+          description?: null | string;
+          sections?: unknown;
+          catalogConfig?: unknown;
+          scheduleConfig?: unknown;
+          billingConfig?: unknown;
+        };
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  PresetsController_duplicate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   StudiosController_list: {
     parameters: {
       query?: {
@@ -294,6 +528,7 @@ export interface operations {
           owner: {
             email: string;
           };
+          presetId: unknown;
         };
       };
     };
@@ -343,9 +578,67 @@ export interface operations {
           owner?: {
             email: string;
           };
+          sections?: unknown;
         };
       };
     };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  StudiosController_deactivate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  StudiosController_activate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  StudiosController_impersonate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
     responses: {
       200: {
         headers: {
