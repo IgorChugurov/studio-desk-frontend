@@ -258,6 +258,7 @@ describe('Schedule week', () => {
     );
     expect(screen.getByRole('combobox', { name: 'Service' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Monday 12.10' }));
     fireEvent.click(screen.getByRole('button', { name: /Yoga/ }));
     expect(screen.queryByRole('button', { name: 'Cancel slot' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
@@ -422,10 +423,20 @@ describe('Schedule week', () => {
     expect((await band())?.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click((await band())!);
     expect((await band())?.getAttribute('aria-expanded')).toBe('true');
-    fireEvent.click(screen.getByRole('button', { name: 'Monday 12.10' }));
+    const monday = screen.getByRole('button', { name: 'Monday 12.10' });
+    const sunday = screen.getByRole('button', { name: 'Sunday 18.10' });
+    expect(monday.getAttribute('aria-expanded')).toBe('false');
+    expect(monday.querySelector('svg')?.getAttribute('class')).toContain(
+      'lucide-chevron-right',
+    );
+    expect(sunday.getAttribute('aria-expanded')).toBe('true');
+    expect(sunday.querySelector('svg')?.getAttribute('class')).toContain(
+      'lucide-chevron-down',
+    );
+    fireEvent.click(sunday);
     expect(
       screen
-        .getByRole('button', { name: 'Monday 12.10' })
+        .getByRole('button', { name: 'Sunday 18.10' })
         .getAttribute('aria-expanded'),
     ).toBe('false');
     first.unmount();
@@ -434,6 +445,11 @@ describe('Schedule week', () => {
     expect(
       screen
         .getByRole('button', { name: 'Monday 12.10' })
+        .getAttribute('aria-expanded'),
+    ).toBe('false');
+    expect(
+      screen
+        .getByRole('button', { name: 'Sunday 18.10' })
         .getAttribute('aria-expanded'),
     ).toBe('true');
   });

@@ -1,4 +1,4 @@
-import { ResourceForm } from '../../../../../../../studio/catalogs/resource-form';
+import { ResourceForm } from '../../../../../../studio/catalogs/resource-form';
 
 export default async function EditResourcePage({
   params,

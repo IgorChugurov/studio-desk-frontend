@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { CircleAlert, Clock, TriangleAlert } from 'lucide-react';
 import type { ApiConflict } from '../api/api-error';
 import type {
   CatalogResource,
@@ -207,17 +208,37 @@ export function SlotWindow({
           onSubmit(draft);
         }}
       >
-        {alert && <p role="alert">{alert}</p>}
+        {alert && (
+          <div
+            role="alert"
+            className="flex items-start gap-[var(--space-200)] rounded-[var(--radius-200)] border border-[var(--border-error-default)] bg-[var(--background-error-secondary)] px-[var(--space-300)] py-[var(--space-250)] font-[family-name:var(--body-font-family)] text-[length:var(--body-sizeM)] font-[var(--body-font-weight-strong)] text-[var(--text-error-default)]"
+          >
+            <CircleAlert
+              aria-hidden
+              className="mt-[2px] size-4 shrink-0 text-[var(--icons-error-default)]"
+            />
+            <span className="flex-1">{alert}</span>
+          </div>
+        )}
         {warnings.length > 0 && (
-          <ul>
-            {warnings.map((warning) => (
-              <li
-                key={`${warning.slotId ?? warning.resourceName}-${warning.start}`}
-              >
-                {busySentence(warning) ?? texts.failed}
-              </li>
-            ))}
-          </ul>
+          <div
+            role="alert"
+            className="flex items-start gap-[var(--space-200)] rounded-[var(--radius-200)] border border-[var(--orange-500)] bg-[var(--background-warning-default)] px-[var(--space-300)] py-[var(--space-250)] font-[family-name:var(--body-font-family)] text-[length:var(--body-sizeM)] text-[var(--text-warning-default)]"
+          >
+            <TriangleAlert
+              aria-hidden
+              className="mt-[2px] size-4 shrink-0 text-[var(--icons-warning-default)]"
+            />
+            <ul className="flex flex-1 flex-col gap-[var(--space-100)] font-[var(--body-font-weight-strong)]">
+              {warnings.map((warning) => (
+                <li
+                  key={`${warning.slotId ?? warning.resourceName}-${warning.start}`}
+                >
+                  {busySentence(warning) ?? texts.failed}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         {mode === 'new' && (
           <Field id="slot-kind" label={texts.service}>
@@ -271,13 +292,22 @@ export function SlotWindow({
           required
           error={errors.time}
         >
-          <Input
-            id="slot-time"
-            value={draft.time}
-            disabled={locked}
-            data-invalid={errors.time ? true : undefined}
-            onChange={(event) => edit({ ...draft, time: event.target.value })}
-          />
+          <div className="relative flex items-center">
+            <Clock
+              aria-hidden
+              className="pointer-events-none absolute left-[var(--space-300)] size-4 text-[var(--icons-gray-secondary)]"
+            />
+            <Input
+              id="slot-time"
+              type="time"
+              step={300}
+              value={draft.time}
+              disabled={locked}
+              data-invalid={errors.time ? true : undefined}
+              className="pl-[var(--space-800)] [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+              onChange={(event) => edit({ ...draft, time: event.target.value })}
+            />
+          </div>
         </Field>
         <Field
           id="slot-duration"

@@ -20,7 +20,14 @@ import {
   type CatalogResource,
   type ResourceTypeConfig,
 } from '../catalogs/resource-types';
-import { addDays, hasStarted, mondayOf, todayIn, weekLabel } from './clock';
+import {
+  addDays,
+  hasStarted,
+  mondayOf,
+  todayIn,
+  weekDates,
+  weekLabel,
+} from './clock';
 import {
   applyApiError,
   buildGrid,
@@ -121,7 +128,10 @@ function Board({
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [slots, setSlots] = useState<SlotInfo[] | null>(null);
   const [reload, setReload] = useState(0);
-  const [closedDays, setClosedDays] = useState<string[]>([]);
+  const [closedChoice, setClosedChoice] = useState<{
+    key: string;
+    dates: string[];
+  } | null>(null);
   const [earlyPref, setEarlyPref] = useState(() => readBands(storageKey).early);
   const [latePref, setLatePref] = useState(() => readBands(storageKey).late);
   const [calendar, setCalendar] = useState(false);
@@ -213,6 +223,9 @@ function Board({
         })
       : null;
   const viewZone = zoneChoice ?? ruleZone;
+  const closedKey = monday && viewZone ? `${monday}|${viewZone}` : '';
+  const closedDays =
+    monday && viewZone ? chosenClosedDays(monday, viewZone, closedChoice) : [];
 
   const model = useMemo(() => {
     if (!viewZone || !monday || !slots || !resources || !columnTypeId)
@@ -270,7 +283,6 @@ function Board({
 
   function moveWeek(days: number) {
     setMonday(addDays(monday!, days));
-    setClosedDays([]);
   }
 
   function openCreate(date: string, minutes: number, columnId: string) {
@@ -537,11 +549,18 @@ function Board({
           allowCreate={allowActions}
           isPast={(date, minutes) => cellPast(date, minutes, viewZone)}
           onToggleDay={(date) =>
-            setClosedDays((current) =>
-              current.includes(date)
-                ? current.filter((item) => item !== date)
-                : [...current, date],
-            )
+            setClosedChoice((current) => {
+              const base =
+                current?.key === closedKey
+                  ? current.dates
+                  : initiallyClosedDays(monday, viewZone);
+              return {
+                key: closedKey,
+                dates: base.includes(date)
+                  ? base.filter((item) => item !== date)
+                  : [...base, date],
+              };
+            })
           }
           onToggleEarly={() => {
             const next = !earlyOpen;
@@ -588,7 +607,6 @@ function Board({
               onChange={(event) => {
                 if (!event.target.value) return;
                 setMonday(mondayOf(event.target.value));
-                setClosedDays([]);
                 setCalendar(false);
               }}
             />
@@ -824,6 +842,22 @@ function emptyFallback(): SlotDraft {
 
 function minutesToTime(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
+function chosenClosedDays(
+  monday: string,
+  viewZone: string,
+  choice: { key: string; dates: string[] } | null,
+): string[] {
+  const key = `${monday}|${viewZone}`;
+  return choice?.key === key
+    ? choice.dates
+    : initiallyClosedDays(monday, viewZone);
+}
+
+function initiallyClosedDays(monday: string, viewZone: string): string[] {
+  const today = todayIn(viewZone);
+  return weekDates(monday).filter((date) => date < today);
 }
 
 function readBands(key: string): { early: boolean; late: boolean } {

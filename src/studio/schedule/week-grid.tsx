@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { dayHeading, timeLabel } from './clock';
 import { columnHeight, hourTaken, minuteTop, type GridModel } from './model';
 import { texts } from './texts';
@@ -70,24 +71,46 @@ export function WeekGrid({
   }
 
   return (
-    <div data-layout="down" className="flex flex-col gap-[var(--space-400)]">
-      {model.days.map((day) => {
+    <div data-layout="down" className="flex flex-col">
+      {model.days.map((day, index) => {
         const closed = closedDays.includes(day.date);
+        const label = dayParts(day.heading);
         return (
           <section key={day.date} id={day.today ? 'schedule-today' : undefined}>
-            <button
-              type="button"
-              aria-expanded={!closed}
-              className="sticky top-0 z-30 flex w-full items-center gap-[var(--space-200)] border-y border-[var(--border-gray-default)] bg-[var(--background-gray-tertiary)] px-[var(--space-300)] py-[var(--space-200)] text-left font-[family-name:var(--body-font-family)] text-[length:var(--body-sizeM)] text-[var(--text-gray-default)]"
-              onClick={() => onToggleDay(day.date)}
+            <div
+              className={`sticky top-0 z-30 w-full overflow-hidden${index === 0 ? ' rounded-t-[var(--radius-200)]' : ''}${closed ? ' border-b border-[var(--border-gray-secondary)]' : ''}`}
             >
-              <span>{day.heading}</span>
-              {day.today && (
-                <span className="text-[length:var(--body-sizeS)] text-[var(--text-primary-default)]">
-                  {texts.today}
+              <button
+                type="button"
+                aria-expanded={!closed}
+                aria-label={
+                  day.today ? `${day.heading} ${texts.today}` : day.heading
+                }
+                className={`flex w-full items-center gap-[var(--space-200)] px-[var(--space-300)] py-[var(--space-200)] text-left font-[family-name:var(--body-font-family)] text-[length:var(--body-sizeM)] text-[var(--text-gray-default)] ${day.today ? 'bg-[var(--background-primary-tertiary)]' : 'bg-[var(--background-gray-tertiary)]'}`}
+                onClick={() => onToggleDay(day.date)}
+              >
+                <span className="flex w-[calc(var(--space-3900)-var(--space-800))] shrink-0">
+                  <span>{label.weekday}</span>
+                  <span className="ml-auto">{label.date}</span>
                 </span>
-              )}
-            </button>
+                {day.today && (
+                  <span className="rounded-[var(--radius-100)] bg-[var(--background-primary-default)] px-[var(--space-150)] py-[var(--space-050)] text-[length:var(--body-sizeS)] text-[var(--text-primary-on-primary)]">
+                    {texts.today}
+                  </span>
+                )}
+                {closed ? (
+                  <ChevronRight
+                    aria-hidden
+                    className="ml-auto size-4 shrink-0"
+                  />
+                ) : (
+                  <ChevronDown
+                    aria-hidden
+                    className="ml-auto size-4 shrink-0"
+                  />
+                )}
+              </button>
+            </div>
             {!closed && (
               <div className="flex min-w-0 border-b border-[var(--border-gray-default)]">
                 <Hours
@@ -344,7 +367,7 @@ function Band({
 function HourLabel({ hour }: { hour: number }) {
   return (
     <div
-      className="border-t border-[var(--border-gray-default)] pr-[var(--space-100)] text-right font-[family-name:var(--body-font-family)] text-[length:var(--body-sizeS)] leading-none text-[var(--text-gray-secondary)]"
+      className="flex items-center justify-end border-t border-[var(--border-gray-default)] pr-[var(--space-100)] text-right font-[family-name:var(--body-font-family)] text-[length:var(--body-sizeS)] leading-none text-[var(--text-gray-secondary)]"
       style={{ height: HOUR }}
     >
       {timeLabel(hour * 60)}
@@ -391,4 +414,12 @@ function HourCell({
 
 function range(from: number, to: number): number[] {
   return Array.from({ length: to - from }, (_, index) => from + index);
+}
+
+function dayParts(heading: string): { weekday: string; date: string } {
+  const split = heading.lastIndexOf(' ');
+  return {
+    weekday: heading.slice(0, split),
+    date: heading.slice(split + 1),
+  };
 }
