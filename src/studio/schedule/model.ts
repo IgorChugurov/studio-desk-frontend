@@ -8,6 +8,7 @@ import { sortedTypes, typeLabel } from '../catalogs/resource-types';
 import {
   addDays,
   clockInZone,
+  dateNumbers,
   dayHeading,
   endsAfterMidnight,
   hasStarted,
@@ -258,24 +259,26 @@ export function buildGrid(input: {
         const covered = live.some(
           (item) => item.startMin < endMin && startMin < item.endMin,
         );
+        const first = cluster[0];
+        if (!first) continue;
         const slotIds = [...new Set(cluster.map((item) => item.slotId))];
         const label = statusLabel(status);
         if (covered) {
           strips.push({
-            key: `strip-${cluster[0].columnId}-${cluster[0].date}-${status}-${startMin}`,
+            key: `strip-${first.columnId}-${first.date}-${status}-${startMin}`,
             slotIds,
             label,
-            columnId: cluster[0].columnId,
-            date: cluster[0].date,
+            columnId: first.columnId,
+            date: first.date,
             startMin,
             endMin,
           });
         } else {
           cards.push({
-            key: `inactive-${cluster[0].columnId}-${cluster[0].date}-${status}-${startMin}`,
+            key: `inactive-${first.columnId}-${first.date}-${status}-${startMin}`,
             slotId: slotIds[0] ?? '',
-            columnId: cluster[0].columnId,
-            date: cluster[0].date,
+            columnId: first.columnId,
+            date: first.date,
             startMin,
             endMin,
             title: label,
@@ -593,8 +596,8 @@ export function dateOfWeekday(weekday: Weekday): string {
 }
 
 export function weekdayOfDate(date: string): Weekday {
-  const [year, month, day] = date.split('-').map(Number);
-  const index = new Date(Date.UTC(year, (month ?? 1) - 1, day)).getUTCDay();
+  const [year, month, day] = dateNumbers(date);
+  const index = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
   return WEEKDAYS[index === 0 ? 6 : index - 1] ?? 'monday';
 }
 

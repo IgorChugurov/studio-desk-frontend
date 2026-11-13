@@ -56,13 +56,13 @@ export function wallOf(
 
 /** The instant of a wall clock in `timeZone`. */
 export function instantOf(date: string, time: string, timeZone: string): Date {
-  const [year, month, day] = date.split('-').map(Number);
-  const [hour, minute] = time.split(':').map(Number);
+  const [year, month, day] = dateNumbers(date);
+  const [hour, minute] = timeNumbers(time);
   let utc = Date.UTC(year, month - 1, day, hour, minute);
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const wall = wallOf(new Date(utc), timeZone);
-    const [gotYear, gotMonth, gotDay] = wall.date.split('-').map(Number);
-    const [gotHour, gotMinute] = wall.time.split(':').map(Number);
+    const [gotYear, gotMonth, gotDay] = dateNumbers(wall.date);
+    const [gotHour, gotMinute] = timeNumbers(wall.time);
     const got = Date.UTC(gotYear, gotMonth - 1, gotDay, gotHour, gotMinute);
     const want = Date.UTC(year, month - 1, day, hour, minute);
     if (got === want) return new Date(utc);
@@ -87,14 +87,14 @@ export function todayIn(timeZone: string, now = new Date()): string {
 }
 
 export function addDays(date: string, days: number): string {
-  const [year, month, day] = date.split('-').map(Number);
+  const [year, month, day] = dateNumbers(date);
   const next = new Date(Date.UTC(year, month - 1, day) + days * 86_400_000);
   return `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}`;
 }
 
 /** Monday of the civil week that contains `date`. */
 export function mondayOf(date: string): string {
-  const [year, month, day] = date.split('-').map(Number);
+  const [year, month, day] = dateNumbers(date);
   const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
   return addDays(date, weekday === 0 ? -6 : 1 - weekday);
 }
@@ -104,8 +104,10 @@ export function weekDates(monday: string): string[] {
 }
 
 export function weekdayName(date: string): string {
-  const [year, month, day] = date.split('-').map(Number);
-  return WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+  const [year, month, day] = dateNumbers(date);
+  return (
+    WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()] ?? 'Sunday'
+  );
 }
 
 export function dayHeading(date: string): string {
@@ -123,8 +125,18 @@ function dotted(date: string): string {
 }
 
 export function minutesOf(time: string): number {
-  const [hour, minute] = time.split(':').map(Number);
+  const [hour, minute] = timeNumbers(time);
   return hour * 60 + minute;
+}
+
+export function dateNumbers(date: string): [number, number, number] {
+  const [year, month, day] = date.split('-');
+  return [Number(year), Number(month), Number(day)];
+}
+
+function timeNumbers(time: string): [number, number] {
+  const [hour, minute] = time.split(':');
+  return [Number(hour), Number(minute)];
 }
 
 export function hasStarted(

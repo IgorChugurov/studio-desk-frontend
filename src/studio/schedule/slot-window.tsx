@@ -21,6 +21,7 @@ import {
   type SlotDraft,
   type SlotKind,
 } from './model';
+import { dateNumbers } from './clock';
 import {
   busySentence,
   formatLabel,
@@ -559,8 +560,8 @@ function windowTitle(
 }
 
 function weekdayOf(date: string): string {
-  const [year, month, day] = date.split('-').map(Number);
-  const index = new Date(Date.UTC(year, (month ?? 1) - 1, day)).getUTCDay();
+  const [year, month, day] = dateNumbers(date);
+  const index = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
   const days = WEEKDAYS;
   return days[index === 0 ? 6 : index - 1] ?? 'monday';
 }
